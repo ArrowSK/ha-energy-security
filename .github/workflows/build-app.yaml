@@ -37,7 +37,12 @@ jobs:
         id: normalize
         shell: bash
         run: |
-          image=${{ steps.info.outputs.image }}
+          image="${{ steps.info.outputs.image }}"
+          if [[ -z "$image" || "$image" == "null" ]]; then
+            # config.yaml intentionally omits `image` so Home Assistant builds locally.
+            # CI still needs a syntactically valid image name for the HA builder matrix.
+            image="ghcr.io/arrowsk/ha-energy-security-ci"
+          fi
           echo "image_name=${image##*/}" >> "$GITHUB_OUTPUT"
           echo "registry_prefix=${image%/*}" >> "$GITHUB_OUTPUT"
           echo "version=${{ steps.info.outputs.version }}" >> "$GITHUB_OUTPUT"
