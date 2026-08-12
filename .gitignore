@@ -2,5 +2,5 @@
 *.log
 *.tmp
 coverage.out
-energy-security
+/energy-security
 /data/
