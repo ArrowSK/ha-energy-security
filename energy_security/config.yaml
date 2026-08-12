@@ -3,7 +3,6 @@ description: National energy-security assessment with local scoring, source fall
 version: "0.1.0"
 slug: energy_security
 url: https://github.com/ArrowSK/ha-energy-security
-image: ghcr.io/arrowsk/ha-energy-security
 arch:
   - aarch64
   - amd64
