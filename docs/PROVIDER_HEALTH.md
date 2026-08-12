@@ -32,9 +32,11 @@ After repeated failures the provider receives an exponentially increasing cooldo
 
 Successful observations are stored in `/data/state.json`. Each observation keeps its own source timestamp, retrieval timestamp and TTL. Restarting the app does not make an old value fresh. Once the TTL expires, the observation is marked stale and excluded from the score.
 
-## Supervisor watchdog
+## Container health check
 
-The provider manager handles data-source failures. Separately, Home Assistant Supervisor can monitor the app process through the local `/healthz` endpoint. A remote provider outage does not make the process-health endpoint fail; otherwise a harmless upstream outage could create a restart loop.
+Data-source failures are handled by the provider manager. Separately, the Docker image defines a native `HEALTHCHECK` against the local `/healthz` endpoint. A remote provider outage does not make `/healthz` fail; otherwise an ordinary upstream outage could create an unnecessary restart loop.
+
+Home Assistant's old app-level `watchdog` configuration is intentionally not used because current app lint treats it as obsolete in favour of the native container health check.
 
 ## What users should do
 

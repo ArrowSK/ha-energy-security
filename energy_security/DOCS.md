@@ -55,7 +55,7 @@ After repeated provider failures, a bounded local circuit breaker temporarily sk
 
 Successful observations are stored in `/data/state.json`. Restarting the app never makes an old observation fresh. Country profiles, parsers, scoring rules and dashboard assets are bundled with the installed release; the runtime does not fetch parser/configuration updates from this repository.
 
-The Home Assistant Supervisor watchdog also checks the app's local `/healthz` endpoint. Provider outages are handled separately by the fallback manager and do not by themselves mean the app process is unhealthy.
+The container includes a native Docker `HEALTHCHECK` against the app's local `/healthz` endpoint. That check covers process/service health independently of provider failures and avoids using Home Assistant's obsolete app-level `watchdog` setting.
 
 ## Diagnostics
 

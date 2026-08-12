@@ -62,7 +62,7 @@ Each domain has an ordered provider chain. Collection and recovery happen locall
 5. probe the preferred provider again after cooldown;
 6. automatically return to it when it recovers.
 
-Cache writes use a temporary file and atomic rename. Historical dashboard points are bounded. No project server coordinates this process and the app never downloads parser code while running. The Home Assistant Supervisor watchdog also monitors the app's local `/healthz` endpoint and can act on a dead process independently of provider health.
+Cache writes use a temporary file and atomic rename. Historical dashboard points are bounded. No project server coordinates this process and the app never downloads parser code while running. The container also has a native Docker `HEALTHCHECK` against the local `/healthz` endpoint so process health is checked independently of provider health.
 
 ## Dashboard and Home Assistant states
 

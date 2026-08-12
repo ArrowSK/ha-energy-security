@@ -12,7 +12,6 @@ homeassistant_api: true
 ingress: true
 panel_icon: mdi:shield-home
 panel_title: Energy Security
-watchdog: http://[HOST]:[PORT:8099]/healthz
 options:
   country: auto
   refresh_minutes: 30

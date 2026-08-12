@@ -14,7 +14,7 @@
 - `eurostat_gas`: keyless monthly natural-gas closing-stock fallback for Eurostat-enabled profiles using `nrg_stk_gasm`, natural gas (`G3000`), national closing stock (`STKCL_NAT`) and `TJ_GCV`.
 - `gas_national_stock_twh` and `gas_stock_index_pct` observations. The index compares the latest monthly national closing stock with the maximum in the returned 36-month window and is intentionally lower confidence than a true physical storage-fill measurement.
 - Home Assistant state sensors for the Eurostat gas stock and stock index when those observations are active.
-- Home Assistant Supervisor watchdog monitoring through the local `/healthz` endpoint.
+- Native Docker `HEALTHCHECK` monitoring through the local `/healthz` endpoint.
 - App Store icon and logo assets.
 - Expanded Home Assistant-facing documentation and provider troubleshooting.
 
