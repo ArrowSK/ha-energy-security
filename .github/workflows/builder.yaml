@@ -1,0 +1,25 @@
+name: Build and publish app
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    name: Build Energy Security Monitor
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    uses: ./.github/workflows/build-app.yaml
+    with:
+      app: energy_security
+      publish: ${{ github.event_name == 'push' }}
+    secrets: inherit
