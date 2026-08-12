@@ -16,7 +16,7 @@ Version 0.1.1 includes:
 - seven-day local weather stress through Open-Meteo;
 - deterministic Current, 7-day Outlook and Strategic Resilience scores with a separate confidence value;
 - local provider health, fallback, circuit-breaker and last-known-good caching;
-- Home Assistant Supervisor watchdog health monitoring;
+- native Docker health checking;
 - Home Assistant Ingress dashboard and optional HA state sensors.
 
 See [DOCS.md](DOCS.md) for installation, configuration, interpretation, diagnostics and troubleshooting. The repository-level [README](../README.md) contains architecture, source and development documentation.
