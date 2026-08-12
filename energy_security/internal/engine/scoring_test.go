@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -49,5 +50,25 @@ func TestLowGasTriggersAlert(t *testing.T) {
 	Score(&s)
 	if len(s.Alerts) == 0 {
 		t.Fatal("expected low gas storage alert")
+	}
+}
+
+func TestEurostatGasProxyProducesLowerConfidenceScore(t *testing.T) {
+	s := model.Snapshot{UpdatedAt: time.Date(2026, time.August, 12, 0, 0, 0, 0, time.UTC), Observations: map[string]model.Observation{
+		"gas_stock_index_pct": measurement("gas_stock_index_pct", 80, .65),
+	}}
+	Score(&s)
+	g := s.Domains["gas"]
+	if g.Score == nil {
+		t.Fatal("expected a gas score from the documented Eurostat proxy")
+	}
+	if g.Confidence >= 40 {
+		t.Fatalf("proxy must remain data-limited and below current-horizon confidence, got %.1f", g.Confidence)
+	}
+	if s.Scores.Current != nil {
+		t.Fatal("monthly Eurostat stock proxy must not create a current-horizon score by itself")
+	}
+	if !strings.Contains(strings.ToLower(g.Summary), "not physical storage-capacity fill") {
+		t.Fatalf("proxy summary must disclose the limitation: %q", g.Summary)
 	}
 }

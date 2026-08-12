@@ -1,70 +1,141 @@
-# Energy Security Monitor — app documentation
+# Energy Security Monitor — Home Assistant app guide
 
-## Start here
+## Quick start
 
-The default configuration is intentional. Install the app, start it, and open **Energy Security** from the Home Assistant sidebar.
+1. Add `ArrowSK/ha-energy-security` to Home Assistant App Store repositories.
+2. Install **Energy Security Monitor**.
+3. Start the app with the default options.
+4. Open **Energy Security** from the Home Assistant sidebar.
 
-`country: auto` reads the country configured for Home Assistant's HOME location. No account, project server, telemetry service, MQTT broker or API key is required.
+`country: auto` uses the country and coordinates configured for Home Assistant HOME. A normal installation needs no external account, project service, MQTT broker or mandatory API key.
+
+Energy Security Monitor is an analytical monitor, not an official security-of-supply declaration. Read the separate confidence value and Diagnostics page together with the headline score.
 
 ## Configuration
 
-### `country`
+| Option | Default | Purpose |
+|---|---|---|
+| `country` | `auto` | HOME country, or an ISO 3166-1 alpha-2 override such as `HU`, `DE`, `FR` or `GB`. |
+| `refresh_minutes` | `30` | Collection interval, 10–180 minutes. Slow monthly datasets remain monthly regardless of this setting. |
+| `enable_ha_entities` | `true` | Publish the core assessment and selected measurements into the HA state machine. |
+| `enable_weather` | `true` | Include seven-day local weather stress from HOME coordinates. |
+| `agsi_key` | empty | Optional higher-quality gas-storage source where supported. |
+| `entsoe_token` | empty | Optional electricity fallback where the bundled country profile supports it. |
 
-Default: `auto`
+A country override changes national data-source selection. If HOME coordinates are available, weather continues to use those coordinates; the app does not silently relocate weather to an overridden country's capital.
 
-`auto` uses Home Assistant's configured country. To monitor another country, enter its ISO 3166-1 alpha-2 code, for example `HU`, `DE`, `FR` or `GB`.
+## What the app can assess
 
-A manual country override changes national data sources only. If Home Assistant location information is available, local weather stress still uses the HOME latitude and longitude.
+Depending on country support and public-source availability, the app can use electricity generation/load and generation mix, cross-border trading, nuclear/renewable output, gas storage or stock evidence, emergency oil stocks, hydrology and seven-day weather stress.
 
-### `refresh_minutes`
+Not every country publishes equivalent data. Missing evidence remains unknown. It is never converted to zero or guessed from a neighbouring country.
 
-Default: `30`
+## Score horizons
 
-Allowed range: 10–180 minutes. Data sources have their own freshness limits, so reducing this setting does not make slow-moving oil or storage statistics real-time.
+- **Current** — fresh operational evidence, weighted mainly toward electricity and fresh actual gas-storage evidence.
+- **7-day Outlook** — current evidence combined with near-term weather stress.
+- **Strategic Resilience** — slower-moving evidence such as generation diversity, gas stocks/storage, emergency oil and hydrology.
 
-### `enable_ha_entities`
+The **Headline** combines those horizons. **Confidence** reflects evidence coverage and source quality.
 
-Default: `true`
+A weaker fallback may still produce a strategic score with reduced confidence. Stale values stop contributing after their TTL.
 
-Publishes a compact set of states such as `sensor.energy_security_score`, `sensor.energy_security_confidence`, domain scores and selected live measurements. These are state-machine entities created by the app; they are republished after the app starts and are not a separate Home Assistant integration.
+## Provider order and self-healing
 
-### `enable_weather`
+Providers are tried locally in a fixed order. In 0.1.1 the principal chains are:
 
-Default: `true`
+- Electricity: Energy-Charts → optional ENTSO-E → local last-known-good cache.
+- Hungary gas: FGSZ → optional GIE AGSI → keyless Eurostat monthly gas stocks → cache.
+- EU gas where Eurostat is enabled: keyless Eurostat monthly gas stocks, with AGSI available when configured.
+- Oil: Eurostat emergency-oil dataset → cache.
+- Hungary water: HYDROINFO → cache.
+- Weather: Open-Meteo → cache.
 
-Adds a seven-day heat, cold, wind and precipitation stress signal using the HOME coordinates.
+After repeated provider failures, a bounded local circuit breaker temporarily skips that source. Once the cooldown expires the preferred source is probed again automatically. Successful recovery clears its failure state.
 
-### `agsi_key`
+Successful observations are stored in `/data/state.json`. Restarting the app never makes an old observation fresh. Country profiles, parsers, scoring rules and dashboard assets are bundled with the installed release; the runtime does not fetch parser/configuration updates from this repository.
 
-Default: empty.
+The container includes a native Docker `HEALTHCHECK` against the app's local `/healthz` endpoint. That check covers process/service health independently of provider failures and avoids using Home Assistant's obsolete app-level `watchdog` setting.
 
-Optional GIE AGSI key. It is not required for the app to operate. If supplied, it can provide a higher-quality gas-storage fallback in countries covered by GIE.
+## Diagnostics
 
-### `entsoe_token`
+Provider states mean:
 
-Default: empty.
+- `healthy` — latest attempt returned valid observations;
+- `failed` — latest attempt failed, but normal retry is still allowed;
+- `degraded` — repeated failures opened the local cooldown;
+- `Last success never` — the current app process has not yet received a valid observation from that provider.
 
-Optional ENTSO-E Transparency Platform token. It is used only where the bundled country profile explicitly supports the adapter. The default electricity source does not require a key.
+A failed provider is a data-source event, not evidence of an energy emergency. Check whether another source in the same domain supplied the active observation.
 
+Observation rows show source, measurement age, stale state and quality. A provider can be failed while a still-fresh fallback/cache observation remains usable.
 
-## How to read the dashboard
+## Gas fallback semantics
 
-The headline is not a claim that every risk is known. It is displayed together with **confidence**. Missing or stale data reduce confidence and are never silently converted to zero.
+The app deliberately separates unlike measurements.
 
-Three horizons are shown:
+`gas_storage_fill_pct` means an actual physical storage-fill percentage from a source that publishes it.
 
-- **Now** — present operational conditions, primarily electricity, gas, hydrology and current stress signals.
-- **Outlook** — current conditions combined with the seven-day weather stress outlook.
-- **Resilience** — slower-moving structural signals such as generation diversity, gas storage, oil data and hydrology where available.
+`gas_stock_index_pct` is the keyless Eurostat monthly fallback: latest reported national closing stock divided by the maximum monthly closing stock in the returned 36-month window. It is a lower-confidence strategic stock-position proxy, **not physical storage capacity fill**. It cannot create a Current-horizon score by itself. Actual FGSZ/GIE fill remains preferred whenever available.
 
-Open **Diagnostics** to see provider health, source freshness, fallback state and collection errors.
+The related raw monthly amount is exposed as `gas_national_stock_twh`.
 
-## Self-healing behaviour
+## Home Assistant entities
 
-A provider failure does not erase a last-known-good observation. The app retries sources on later cycles, switches to the next configured provider where available, opens a temporary circuit after repeated failures, and automatically retries the preferred provider after the cooldown. Cache writes are atomic and stored under `/data`.
+With `enable_ha_entities: true`, the app publishes:
 
-If the internet is unavailable, cached observations remain visible until their individual freshness limits expire. Once stale, they stop contributing to the score.
+- `sensor.energy_security_score`
+- `sensor.energy_security_confidence`
+- `sensor.energy_security_status`
+- `sensor.energy_security_electricity`
+- `sensor.energy_security_gas`
+- `sensor.energy_security_oil`
+- `sensor.energy_security_water`
+- `sensor.energy_security_weather`
 
-## Privacy
+Selected measurement sensors appear when the underlying observation exists, including electricity generation/load, nuclear output, renewable share, gas storage fill, national gas stock and gas stock index.
 
-There is no telemetry and no runtime call to the project repository. See `docs/PRIVACY.md` in the repository for the exact network model.
+The Ingress dashboard does not depend on HA state publication, so it can remain functional if state publication fails.
+
+## 0.1.1 provider fixes
+
+### Energy-Charts `http 404`
+
+The collector now requests an explicit recent multi-day window instead of relying on the provider's implicit current-day window. This avoids false failures around day rollover before the new day has published data.
+
+### Eurostat oil `returned no oil-stock values`
+
+The collector now requests the latest 12 reporting periods and selects the newest period that actually contains the expected emergency-stock series for the selected country. It does not substitute another oil series when that series is absent.
+
+### FGSZ no recognised measurements
+
+FGSZ can expose labels while inserting live numerical values client-side. The app intentionally does not run a browser engine. If the received HTML has no trustworthy live values, FGSZ fails safely and the chain proceeds to AGSI when configured or the keyless Eurostat monthly gas-stock fallback.
+
+### `Last success 739839 d ago`
+
+That was a presentation bug caused by interpreting Go's zero timestamp as a real date. Version 0.1.1 displays `Last success never` until the provider has actually succeeded.
+
+## Troubleshooting checklist
+
+If a domain is Unknown/Data limited:
+
+1. open Diagnostics;
+2. identify which provider failed and its exact error;
+3. check whether a later provider succeeded;
+4. check the observation source, age and stale flag;
+5. press **Refresh** once after an app update;
+6. if all sources continue failing, report app version, country, provider ID, exact error and approximate refresh time.
+
+After an internet outage, the app restores `/data/state.json`, recalculates stale state from the original timestamps/TTLs, and continues provider retries.
+
+## Further documentation
+
+- repository `README.md` — project overview and installation model;
+- `docs/DATA_SOURCES.md` — exact provider behaviour and semantic limitations;
+- `docs/SUPPORT_MATRIX.md` — country coverage;
+- `docs/PROVIDER_HEALTH.md` — provider states, circuit breaker and fallback semantics;
+- `docs/SCORING.md` — deterministic scoring model;
+- `docs/ARCHITECTURE.md` — runtime architecture;
+- `docs/PRIVACY.md` — network/privacy model;
+- `docs/TROUBLESHOOTING.md` — detailed fault isolation;
+- `docs/MEMORY_BUDGET.md` — resource measurement procedure.

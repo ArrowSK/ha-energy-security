@@ -38,7 +38,7 @@ func New(cfg config.Config, dataDir string) *App {
 	a := &App{cfg: cfg, cache: cache.Store{Path: dataDir + "/state.json"}, ha: ha.New(), pm: provider.NewManager()}
 	a.groups = []provider.Group{
 		{ID: "electricity", TTL: 90 * time.Minute, Providers: []provider.Provider{provider.EnergyCharts{C: hc}, provider.ENTSOE{C: hc}}},
-		{ID: "gas", TTL: 36 * time.Hour, Providers: []provider.Provider{provider.HungaryFGSZ{C: hc}, provider.AGSI{C: hc}}},
+		{ID: "gas", TTL: 36 * time.Hour, Providers: []provider.Provider{provider.HungaryFGSZ{C: hc}, provider.AGSI{C: hc}, provider.EurostatGasStocks{C: hc}}},
 		{ID: "oil", TTL: 45 * 24 * time.Hour, Providers: []provider.Provider{provider.EurostatOil{C: hc}}},
 		{ID: "water", TTL: 36 * time.Hour, Providers: []provider.Provider{provider.HungaryHydroinfo{C: hc}}},
 		{ID: "weather", TTL: 6 * time.Hour, Providers: []provider.Provider{provider.OpenMeteo{C: hc}}},
@@ -55,7 +55,7 @@ func (a *App) Snapshot() model.Snapshot {
 	defer a.mu.RUnlock()
 	return cloneSnapshot(a.snapshot)
 }
-func cloneSnapshot(s model.Snapshot) model.Snapshot { // JSON-free shallow/deep-enough copy for read-only API encoding
+func cloneSnapshot(s model.Snapshot) model.Snapshot {
 	out := s
 	out.Domains = map[string]model.DomainScore{}
 	for k, v := range s.Domains {
@@ -222,9 +222,24 @@ func (a *App) publishHA(ctx context.Context, s model.Snapshot) error {
 		d := s.Domains[k]
 		_ = a.ha.SetState(ctx, "sensor.energy_security_"+k, stateNumber(d.Score), merge(base, map[string]any{"friendly_name": "Energy Security " + title(k), "unit_of_measurement": "score", "state_class": "measurement", "domain_status": d.Status, "summary": d.Summary, "domain_confidence": d.Confidence}))
 	}
-	for _, x := range []struct{ k, e, f, u, i string }{{"gas_storage_fill_pct", "sensor.energy_security_gas_storage_fill", "Gas Storage Fill", "%", "mdi:storage-tank"}, {"nuclear_output_mw", "sensor.energy_security_nuclear_output", "Nuclear Output", "MW", "mdi:atom"}, {"renewable_share_pct", "sensor.energy_security_renewable_share", "Renewable Share", "%", "mdi:leaf"}, {"electricity_load_mw", "sensor.energy_security_electricity_load", "Electricity Load", "MW", "mdi:transmission-tower"}, {"electricity_generation_mw", "sensor.energy_security_electricity_generation", "Electricity Generation", "MW", "mdi:lightning-bolt"}} {
+	for _, x := range []struct{ k, e, f, u, i string }{
+		{"gas_storage_fill_pct", "sensor.energy_security_gas_storage_fill", "Gas Storage Fill", "%", "mdi:storage-tank"},
+		{"gas_stock_index_pct", "sensor.energy_security_gas_stock_index", "Gas Stock Index", "%", "mdi:storage-tank"},
+		{"gas_national_stock_twh", "sensor.energy_security_gas_national_stock", "Gas National Stock", "TWh", "mdi:storage-tank"},
+		{"nuclear_output_mw", "sensor.energy_security_nuclear_output", "Nuclear Output", "MW", "mdi:atom"},
+		{"renewable_share_pct", "sensor.energy_security_renewable_share", "Renewable Share", "%", "mdi:leaf"},
+		{"electricity_load_mw", "sensor.energy_security_electricity_load", "Electricity Load", "MW", "mdi:transmission-tower"},
+		{"electricity_generation_mw", "sensor.energy_security_electricity_generation", "Electricity Generation", "MW", "mdi:lightning-bolt"},
+	} {
 		if o, ok := s.Observations[x.k]; ok && o.Value != nil {
-			_ = a.ha.SetState(ctx, x.e, strconv.FormatFloat(*o.Value, 'f', 1, 64), merge(base, map[string]any{"friendly_name": x.f, "unit_of_measurement": x.u, "state_class": "measurement", "icon": x.i, "source": o.Source, "observed_at": o.ObservedAt.Format(time.RFC3339), "stale": o.Stale}))
+			attrs := merge(base, map[string]any{"friendly_name": x.f, "unit_of_measurement": x.u, "state_class": "measurement", "icon": x.i, "source": o.Source, "observed_at": o.ObservedAt.Format(time.RFC3339), "stale": o.Stale})
+			if o.Attributes != nil {
+				if proxy, ok := o.Attributes["not_capacity_fill"].(bool); ok && proxy {
+					attrs["not_capacity_fill"] = true
+					attrs["basis"] = o.Attributes["basis"]
+				}
+			}
+			_ = a.ha.SetState(ctx, x.e, strconv.FormatFloat(*o.Value, 'f', 1, 64), attrs)
 		}
 	}
 	return nil

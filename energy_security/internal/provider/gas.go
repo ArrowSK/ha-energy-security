@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -39,13 +40,16 @@ func (p HungaryFGSZ) Collect(ctx context.Context, in Input) ([]model.Observation
 		}
 	}
 	out := []model.Observation{}
-	if m := regexp.MustCompile(`(?i)Total stock level in domestic gas storage.*?([0-9]+(?:[.,][0-9]+)?)\s*%`).FindStringSubmatch(t); len(m) > 1 {
+	if m := regexp.MustCompile(`(?i)Total stock level in domestic gas storage[^%]{0,240}?([0-9]+(?:[.,][0-9]+)?)\s*%`).FindStringSubmatch(t); len(m) > 1 {
 		if v, ok := number(m[1]); ok {
 			out = append(out, obs("gas_storage_fill_pct", "gas", "Gas storage fill", v, "%", p.Name(), u, 0.96, at))
 		}
 	}
 	for _, x := range []struct{ label, key, name string }{{"Total domestic production", "gas_domestic_production_mw", "Domestic gas production"}, {"Total domestic withdrawal", "gas_storage_withdrawal_mw", "Gas storage withdrawal"}, {"Total domestic consumption", "gas_consumption_mw", "Domestic gas consumption"}, {"Total domestic injection", "gas_storage_injection_mw", "Gas storage injection"}} {
-		re := regexp.MustCompile(`(?i)` + regexp.QuoteMeta(x.label) + `\s*([0-9][0-9., ]*)\s*kWh/h`)
+		// FGSZ has changed the amount of markup/text inserted between the label
+		// and value several times. Allow a bounded gap but never scan across the
+		// whole page, which could associate a label with an unrelated number.
+		re := regexp.MustCompile(`(?i)` + regexp.QuoteMeta(x.label) + `.{0,180}?([0-9][0-9., ]*)\s*kWh/h`)
 		m := re.FindStringSubmatch(t)
 		if len(m) > 1 {
 			if v, ok := number(m[1]); ok {
@@ -54,7 +58,7 @@ func (p HungaryFGSZ) Collect(ctx context.Context, in Input) ([]model.Observation
 		}
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("FGSZ page did not contain recognised gas measurements")
+		return nil, fmt.Errorf("FGSZ public page contained no server-rendered live gas values; falling back")
 	}
 	return out, nil
 }
@@ -117,4 +121,101 @@ func (p AGSI) Collect(ctx context.Context, in Input) ([]model.Observation, error
 		return nil, fmt.Errorf("AGSI response lacked recognised fields")
 	}
 	return out, nil
+}
+
+// EurostatGasStocks is the keyless, lower-frequency fallback for EU profiles.
+// It deliberately does not pretend that monthly national closing stock is the
+// same thing as a live physical storage-capacity fill percentage. Instead it
+// exposes the latest stock and an index against the country's own trailing
+// 36-month maximum. The scoring engine lowers confidence when this proxy is
+// used.
+type EurostatGasStocks struct{ C *httpx.Client }
+
+func (p EurostatGasStocks) ID() string             { return "eurostat_gas" }
+func (p EurostatGasStocks) Name() string           { return "Eurostat gas stocks" }
+func (p EurostatGasStocks) Supports(in Input) bool { return in.Profile.Eurostat }
+
+func (p EurostatGasStocks) Collect(ctx context.Context, in Input) ([]model.Observation, error) {
+	if p.C == nil {
+		p.C = httpx.New()
+	}
+	q := url.Values{
+		"geo":            []string{in.Profile.Code},
+		"siec":           []string{"G3000"},
+		"unit":           []string{"TJ_GCV"},
+		"stk_flow":       []string{"STKCL_NAT"},
+		"lastTimePeriod": []string{"36"},
+		"lang":           []string{"en"},
+	}
+	u := "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/nrg_stk_gasm?" + q.Encode()
+	b, _, err := p.C.Get(ctx, u, nil, 3<<20)
+	if err != nil {
+		return nil, err
+	}
+	var d jsDoc
+	if err := json.Unmarshal(b, &d); err != nil {
+		return nil, fmt.Errorf("decode Eurostat gas stocks: %w", err)
+	}
+	cs := euroCandidates(d)
+	if len(cs) == 0 {
+		return nil, fmt.Errorf("Eurostat returned no national natural-gas closing-stock values")
+	}
+
+	// Filters above normally leave one value per month. Keep the maximum when
+	// a duplicate dimension remains, rather than summing categories and risking
+	// double-counting an aggregate together with its components.
+	byMonth := map[string]float64{}
+	for _, c := range cs {
+		if c.Time == "" || c.Val <= 0 {
+			continue
+		}
+		if c.Codes["stk_flow"] != "" && c.Codes["stk_flow"] != "STKCL_NAT" {
+			continue
+		}
+		if c.Codes["siec"] != "" && c.Codes["siec"] != "G3000" {
+			continue
+		}
+		if c.Val > byMonth[c.Time] {
+			byMonth[c.Time] = c.Val
+		}
+	}
+	if len(byMonth) == 0 {
+		return nil, fmt.Errorf("Eurostat gas-stock response contained no usable monthly values")
+	}
+	months := make([]string, 0, len(byMonth))
+	var peak float64
+	for month, v := range byMonth {
+		months = append(months, month)
+		if v > peak {
+			peak = v
+		}
+	}
+	sort.Strings(months)
+	latestMonth := months[len(months)-1]
+	latest := byMonth[latestMonth]
+	if peak <= 0 || latest <= 0 {
+		return nil, fmt.Errorf("Eurostat gas-stock response had non-positive latest/peak values")
+	}
+	index := latest / peak * 100
+	if index > 105 {
+		return nil, fmt.Errorf("Eurostat gas-stock index is implausible: %.1f%%", index)
+	}
+	if index > 100 {
+		index = 100
+	}
+	at := time.Now().UTC()
+	if t, e := time.Parse("2006-01", latestMonth); e == nil {
+		at = t.UTC()
+	}
+	stock := obs("gas_national_stock_twh", "gas", "National natural-gas closing stock", latest/3600, "TWh", p.Name(), u, 0.70, at)
+	stock.Attributes = map[string]any{"reporting_period": latestMonth, "eurostat_flow": "STKCL_NAT", "eurostat_product": "G3000"}
+	stock.TTLSeconds = int64((120 * 24 * time.Hour).Seconds())
+	proxy := obs("gas_stock_index_pct", "gas", "Gas stock index", index, "% of trailing 36-month maximum", p.Name(), u, 0.65, at)
+	proxy.Attributes = map[string]any{
+		"reporting_period":  latestMonth,
+		"basis":             "latest national closing stock divided by maximum reported monthly closing stock in the returned 36-month window",
+		"not_capacity_fill": true,
+	}
+	proxy.TTLSeconds = int64((120 * 24 * time.Hour).Seconds())
+	return []model.Observation{stock, proxy}, nil
 }

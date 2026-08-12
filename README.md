@@ -6,23 +6,23 @@ The normal setup is deliberately simple: add the repository, install the app, st
 
 The app has no project account, telemetry service, licence server, remote configuration service, MQTT requirement, paid API requirement, or runtime dependency on this repository. Country profiles, provider logic, scoring rules, dashboard assets and fallback behaviour are shipped with the installed app. If this repository becomes unavailable after installation, the running app keeps working with its bundled logic and local cache.
 
-> **Release status:** 0.1.0 is an experimental first public release. Hungary is the full reference profile. Broader European electricity and oil coverage is available, but country support is graded rather than pretending that every country publishes equivalent data.
+> **Release status:** 0.1.1 is an experimental reliability release. Hungary is the full reference profile. Broader European coverage is graded rather than pretending that every country publishes equivalent data.
 
 ## What it measures
 
-The first release covers the parts of energy security that can be obtained reliably without asking users to connect a collection of external services:
+Depending on country support and source availability, the app can use:
 
 - electricity generation and load;
-- generation mix, including nuclear, solar, wind, hydro and thermal generation where available;
+- generation mix, including nuclear, solar, wind, hydro and thermal generation;
 - cross-border electricity trading where exposed by the selected feed;
-- gas storage and gas-system measurements where a country adapter exists;
-- emergency oil-stock data from Eurostat for EU profiles, interpreted conservatively;
-- hydrological conditions where a country adapter exists; Hungary includes Budapest and Paks Danube level, discharge and water temperature when published;
+- gas storage/system measurements or a clearly labelled lower-frequency national stock proxy;
+- emergency oil-stock days-equivalent for EU profiles;
+- hydrological conditions where a country adapter exists; Hungary includes Budapest/Paks Danube evidence and water temperature where published;
 - seven-day heat, cold, wind and precipitation stress around HOME;
 - generation diversity as a structural resilience signal;
 - source freshness, provider failures, fallbacks and confidence.
 
-The provider model can later add reservoir storage, cooling-water constraints, plant outages, interconnector headroom, LNG send-out, pipeline flows, demand forecasts, pumped storage and batteries without changing the dashboard or scoring contract.
+The provider model is intentionally extensible: reservoir storage, cooling-water constraints, plant outages, interconnector headroom, LNG send-out, pipeline flows, demand forecasts, pumped storage and batteries can be added without replacing the scoring/dashboard contract.
 
 ## Scores and confidence
 
@@ -30,9 +30,9 @@ The dashboard exposes three horizons:
 
 - **Current** — operational conditions now and roughly the next 48 hours.
 - **7-day outlook** — current conditions with near-term weather stress.
-- **Strategic resilience** — slower-moving structural signals such as generation diversity, storage, oil data and hydrology.
+- **Strategic resilience** — slower-moving structural signals such as generation diversity, storage/stocks, oil evidence and hydrology.
 
-The headline combines those horizons, but is always accompanied by a separate **confidence** value.
+The headline combines those horizons and is always accompanied by a separate **confidence** value.
 
 Missing data never becomes zero. Stale data does not contribute indefinitely. If a source fails, the app tries the next configured provider. If no fresh fallback exists, a last-known-good observation is retained only inside its defined freshness window. Missing domains reduce confidence instead of manufacturing a crisis.
 
@@ -53,24 +53,24 @@ Advanced users can optionally provide a GIE AGSI key to improve supported gas-st
 
 ## Self-healing behaviour
 
-Each domain has an ordered provider chain. The collector records provider health locally and applies bounded recovery behaviour:
+Each domain has an ordered provider chain. Collection and recovery happen locally:
 
 1. query the preferred supported provider;
 2. on failure, try the next provider;
-3. after repeated failures, temporarily open a circuit for the failing provider;
+3. after repeated failures, temporarily open a local circuit for the failing provider;
 4. keep valid last-known-good observations in `/data`;
-5. probe the preferred provider again after its cooldown;
+5. probe the preferred provider again after cooldown;
 6. automatically return to it when it recovers.
 
-Cache writes use a temporary file and atomic rename. Historical dashboard points are bounded to seven days. No project server coordinates this process.
+Cache writes use a temporary file and atomic rename. Historical dashboard points are bounded. No project server coordinates this process and the app never downloads parser code while running. The container also has a native Docker `HEALTHCHECK` against the local `/healthz` endpoint so process health is checked independently of provider health.
 
 ## Dashboard and Home Assistant states
 
-The built-in dashboard is served through Home Assistant Ingress and is progressive rather than a wall of gauges. Its main view shows the national headline, confidence, the three scoring horizons, domain scores, current stress signals, electricity generation mix and recent history. **Diagnostics** exposes provider state, source age, measurement quality, fallback errors and stale state.
+The built-in dashboard is served through Home Assistant Ingress and is progressive rather than a wall of gauges. Its main view shows the national headline, confidence, three scoring horizons, domain scores, current stress signals, electricity generation mix and recent history. **Diagnostics** exposes provider state, source age, measurement quality, fallback errors and stale state.
 
 The frontend has no external JavaScript, font, analytics or CDN dependency; its assets are embedded in the Go binary.
 
-With `enable_ha_entities: true`, the app also publishes a compact set of state-machine sensors through Home Assistant's internal REST API, including:
+With `enable_ha_entities: true`, the app also publishes state-machine sensors through Home Assistant's internal REST API, including:
 
 - `sensor.energy_security_score`
 - `sensor.energy_security_confidence`
@@ -80,37 +80,50 @@ With `enable_ha_entities: true`, the app also publishes a compact set of state-m
 - `sensor.energy_security_oil`
 - `sensor.energy_security_water`
 - `sensor.energy_security_weather`
-- selected generation, load, nuclear, renewable and storage measurements when available.
+- selected generation/load/nuclear/renewable/storage measurements when available;
+- `sensor.energy_security_gas_national_stock` and `sensor.energy_security_gas_stock_index` when the Eurostat monthly gas fallback is active.
 
 No MQTT broker or companion cloud service is required.
 
 ## Current source strategy
 
-The source order is: established machine-readable feeds first, optional official APIs second, public national pages where no stable unauthenticated feed exists, then local last-known-good state.
+The source order is: established machine-readable feeds first, optional official APIs second, public national pages where no stable unauthenticated structured feed exists, then local last-known-good state.
 
-| Domain | Primary / optional source | Credentials | 0.1.0 coverage |
+| Domain | Primary / fallback sources | Credentials | Current coverage |
 |---|---|---:|---|
-| Electricity | Energy-Charts / optional ENTSO-E fallback | None / optional | Broad Europe |
-| Gas | FGSZ Hungary / optional GIE AGSI | None / optional | Hungary full; AGSI enhancement |
-| Oil | Eurostat emergency-stock dataset | None | EU profiles, conservative parsing |
+| Electricity | Energy-Charts → optional ENTSO-E | None / optional | Broad Europe |
+| Gas | FGSZ (HU) → optional GIE AGSI → Eurostat monthly gas stocks | None / optional | HU full chain; EU strategic fallback |
+| Oil | Eurostat emergency-stock dataset | None | EU profiles |
 | Water | HYDROINFO | None | Hungary |
 | Weather stress | Open-Meteo | None | HOME coordinates |
 
+Version 0.1.1 deliberately distinguishes actual gas storage fill from the keyless Eurostat monthly stock proxy. The proxy compares the latest national closing stock with the maximum in the returned 36-month window; it is lower confidence, is not used by itself to create a Current-horizon score, and is not labelled as physical capacity fill.
+
 See [Data sources](docs/DATA_SOURCES.md) and [Support matrix](docs/SUPPORT_MATRIX.md) for exact limitations.
+
+## 0.1.1 reliability fixes
+
+This release addresses three provider failures observed in normal Hungary operation:
+
+- **Energy-Charts `HTTP 404`:** the collector now sends an explicit recent date range instead of relying on the API's implicit current-day window around midnight/day rollover.
+- **Eurostat oil empty result:** the collector now looks across the latest 12 reporting periods and selects the newest available country value rather than assuming every country has a value in the newest global period.
+- **FGSZ no recognised measurements:** the adapter now identifies the absence of server-rendered live values as a safe provider failure, then falls through to optional AGSI or the new keyless Eurostat monthly gas-stock fallback.
+
+Diagnostics also renders a provider that has never succeeded as **Last success never** instead of interpreting Go's zero timestamp as an ancient date.
 
 ## Installation
 
 Add this repository to Home Assistant's App Store repositories, then install **Energy Security Monitor**.
 
-Version 0.1.0 intentionally omits the Home Assistant `image` setting. Supervisor therefore builds the app locally from the public repository during installation rather than requiring access to a separately managed container-registry package. CI independently builds both `aarch64` and `amd64` container variants to validate the Dockerfile and architecture support, but does not publish a runtime package. After installation, normal operation does not contact this repository.
+The repository intentionally omits a runtime `image` setting. Supervisor builds the app locally during installation from the repository rather than requiring a separately managed project container registry. CI builds supported architectures independently for validation. Once installed, normal operation does not contact this repository.
 
-The app opens through Home Assistant Ingress and exposes no external port.
+The app opens through Home Assistant Ingress and exposes no user-facing external port.
 
 ## Resource budget
 
-The runtime is one statically linked Go process plus the Home Assistant base image. There is no Python interpreter, Node process, browser engine, database server or server-side chart renderer.
+The runtime is one Go process plus the Home Assistant base image. There is no Python interpreter, Node process, browser engine, database server or server-side chart renderer.
 
-The release gate is **under 50 MB steady-state RSS**. The engineering target is **35 MB or less** during normal operation. Build-time memory is separate from this runtime budget. See [Memory budget](docs/MEMORY_BUDGET.md) for the measurement method.
+The release gate is **under 50 MB steady-state RSS**. The engineering target is **35 MB or less** during normal operation. Build-time memory is separate. See [Memory budget](docs/MEMORY_BUDGET.md) for the measurement method.
 
 ## Privacy and independence
 
@@ -120,11 +133,12 @@ There is no telemetry endpoint, analytics SDK, remote configuration backend, pro
 
 ## Documentation
 
-- [App configuration](energy_security/DOCS.md)
+- [Home Assistant app guide](energy_security/DOCS.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Scoring model](docs/SCORING.md)
 - [Data sources](docs/DATA_SOURCES.md)
 - [Support matrix](docs/SUPPORT_MATRIX.md)
+- [Provider health and fallbacks](docs/PROVIDER_HEALTH.md)
 - [Privacy](docs/PRIVACY.md)
 - [Memory budget](docs/MEMORY_BUDGET.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
@@ -137,4 +151,4 @@ Copyright 2026 ArrowSK.
 
 The software is licensed under **PolyForm Noncommercial License 1.0.0**. This is a source-available noncommercial licence and is not an OSI-approved open-source licence. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-External data remains subject to the terms of its respective provider. No third-party dataset is bundled into the executable.
+External data remains subject to the terms of its respective provider. No third-party provider dataset is bundled into the executable.

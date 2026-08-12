@@ -15,24 +15,27 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
-func TestEurostatOilSelectsExplicitEmergencyStockSeries(t *testing.T) {
+func TestEurostatOilSelectsLatestAvailableEmergencyStockSeries(t *testing.T) {
 	fixture := `{
 		"id":["freq","stk_flow","unit","geo","time"],
-		"size":[1,2,1,1,1],
+		"size":[1,2,1,1,2],
 		"dimension":{
 			"freq":{"category":{"index":{"M":0},"label":{"M":"Monthly"}}},
 			"stk_flow":{"category":{"index":{"STK_EUE_DIR":0,"STK_MIN_CAL":1},"label":{"STK_EUE_DIR":"Emergency Stocks held by the MS in days equivalent","STK_MIN_CAL":"Minimum stocklevel for compliance - calculated"}}},
 			"unit":{"category":{"index":{"NR":0},"label":{"NR":"Number"}}},
 			"geo":{"category":{"index":{"HU":0},"label":{"HU":"Hungary"}}},
-			"time":{"category":{"index":{"2026-05":0},"label":{"2026-05":"2026-05"}}}
+			"time":{"category":{"index":{"2026-04":0,"2026-05":1},"label":{"2026-04":"2026-04","2026-05":"2026-05"}}}
 		},
-		"value":{"0":92.4,"1":90.0}
+		"value":{"0":91.0,"1":92.4,"2":90.0,"3":90.0}
 	}`
 	client := &httpx.Client{HTTP: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		q := r.URL.Query()
 		flows := q["stk_flow"]
 		if len(flows) != 2 || flows[0] != "STK_EUE_DIR" || flows[1] != "STK_MIN_CAL" {
 			t.Fatalf("unexpected stk_flow query: %v", flows)
+		}
+		if q.Get("unit") != "NR" || q.Get("lastTimePeriod") != "12" {
+			t.Fatalf("unexpected Eurostat query: %s", r.URL.RawQuery)
 		}
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(fixture)), Header: make(http.Header)}, nil
 	})}}
@@ -46,6 +49,9 @@ func TestEurostatOilSelectsExplicitEmergencyStockSeries(t *testing.T) {
 	}
 	if out[1].Key != "oil_required_stock_days" || out[1].Value == nil || *out[1].Value != 90.0 {
 		t.Fatalf("unexpected minimum stock observation: %+v", out[1])
+	}
+	if out[0].ObservedAt.Format("2006-01") != "2026-05" {
+		t.Fatalf("expected latest reporting month, got %s", out[0].ObservedAt)
 	}
 }
 

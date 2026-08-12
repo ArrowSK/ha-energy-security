@@ -158,10 +158,27 @@ func electricity(obs map[string]model.Observation) (model.DomainScore, *float64,
 	return model.DomainScore{Score: cur, Status: status(cur, q), Confidence: q, Summary: summary}, strategic, q
 }
 func gas(obs map[string]model.Observation, month time.Month) model.DomainScore {
-	fill, ok := val(obs, "gas_storage_fill_pct")
+	fill, live := val(obs, "gas_storage_fill_pct")
 	q := quality(obs, "gas_storage_fill_pct") * 100
-	if !ok {
-		return model.DomainScore{Status: "Unknown", Confidence: 0, Summary: "No current gas-storage measurement."}
+	proxy := false
+	if !live {
+		var ok bool
+		fill, ok = val(obs, "gas_stock_index_pct")
+		if !ok {
+			return model.DomainScore{Status: "Unknown", Confidence: 0, Summary: "No current gas-storage measurement or defensible stock proxy."}
+		}
+		q = quality(obs, "gas_stock_index_pct") * 100
+		proxy = true
+	}
+	if proxy {
+		// The Eurostat value is a relative stock-position proxy, not a physical
+		// storage-capacity percentage. Do not apply the live-fill seasonal
+		// thresholds to it. Keep it as a strategic, deliberately low-confidence
+		// signal; Score() excludes sub-40-confidence gas from the current horizon.
+		q *= 0.55
+		s := clamp(fill, 20, 95)
+		summary := fmt.Sprintf("Eurostat monthly national stock is %.1f%% of the trailing 36-month maximum. This is a low-confidence strategic stock proxy, not physical storage-capacity fill.", fill)
+		return model.DomainScore{Score: &s, Status: status(&s, q), Confidence: q, Summary: summary}
 	}
 	targets := map[time.Month]float64{time.January: 55, time.February: 40, time.March: 30, time.April: 28, time.May: 38, time.June: 50, time.July: 62, time.August: 72, time.September: 82, time.October: 90, time.November: 82, time.December: 68}
 	target := targets[month]
@@ -275,7 +292,9 @@ func Score(s *model.Snapshot) {
 		}
 	}
 	add(e, 0.50)
-	add(g, 0.30)
+	if g.Confidence >= 40 {
+		add(g, 0.30)
+	}
 	add(w, 0.10)
 	add(wx, 0.10)
 	cur, cc := weighted(items, 1.0)
@@ -318,7 +337,7 @@ func Score(s *model.Snapshot) {
 		alerts = append(alerts, "Electricity supply indicators are under stress.")
 	}
 	if g.Score != nil && *g.Score < 50 {
-		alerts = append(alerts, "Gas storage is weak for the season.")
+		alerts = append(alerts, "Gas storage or stock indicators are weak for the season.")
 	}
 	if w.Score != nil && *w.Score < 50 {
 		alerts = append(alerts, "Hydrological conditions may constrain energy infrastructure.")
