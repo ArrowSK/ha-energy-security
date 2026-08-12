@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: energy_security
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: energy_security/go.mod
+          cache-dependency-path: energy_security/go.mod
+
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Test
+        run: go test ./...
+
+      - name: Race test
+        run: go test -race ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build -trimpath -ldflags="-s -w -X main.version=ci" -o /tmp/energy-security ./cmd/energy-security
+
+      - name: Self-test
+        run: /tmp/energy-security --self-test
+
+      - name: Check embedded country JSON
+        run: python3 -m json.tool internal/country/data/countries.json >/dev/null
