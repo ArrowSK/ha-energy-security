@@ -1,0 +1,38 @@
+#include <tunables/global>
+
+profile energy_security flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  file,
+  network inet,
+  network inet6,
+  signal (send) set=(kill,term,int,hup,cont),
+
+  # S6 Overlay and base-image utilities needed to launch the app.
+  /init ix,
+  /bin/** ix,
+  /usr/bin/** ix,
+  /run/{s6,s6-rc*,service}/** ix,
+  /package/** ix,
+  /command/** ix,
+  /etc/services.d/** rwix,
+  /etc/cont-init.d/** rwix,
+  /etc/cont-finish.d/** rwix,
+  /run/{,**} rwk,
+  /dev/tty rw,
+  /usr/lib/bashio/** ix,
+  /tmp/** rwk,
+
+  # Energy Security Monitor runtime.
+  /usr/local/bin/energy-security rix,
+
+  # Persistent app options and cache.
+  /data/** rwk,
+
+  # Resolver, certificates and timezone data used by HTTPS providers.
+  /etc/hosts r,
+  /etc/resolv.conf r,
+  /etc/nsswitch.conf r,
+  /etc/ssl/** r,
+  /usr/share/zoneinfo/** r,
+}

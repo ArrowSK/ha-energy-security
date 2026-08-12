@@ -1,0 +1,19 @@
+configuration:
+  country:
+    name: Country
+    description: Use auto to follow Home Assistant's HOME country, or enter a two-letter ISO country code such as HU or DE.
+  refresh_minutes:
+    name: Refresh interval
+    description: Minutes between collection cycles. Thirty minutes is recommended for normal use.
+  enable_ha_entities:
+    name: Publish Home Assistant sensors
+    description: Publish the headline, domain and selected measurement values to Home Assistant's state machine.
+  enable_weather:
+    name: Weather stress outlook
+    description: Use the HOME location for a seven-day weather stress assessment.
+  agsi_key:
+    name: Optional GIE AGSI key
+    description: Optional free AGSI API key. Leave empty; the app works without it. A key can improve gas-storage coverage where supported.
+  entsoe_token:
+    name: Optional ENTSO-E token
+    description: Optional ENTSO-E Transparency Platform token used only as a fallback where a country profile supports it.

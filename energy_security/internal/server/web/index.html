@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <title>Energy Security Monitor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">National resilience monitor</p>
+        <h1 id="countryName">Energy Security</h1>
+        <p class="meta" id="updated">Waiting for the first assessment…</p>
+      </div>
+      <button id="refreshBtn" class="refresh" type="button" aria-label="Refresh data">Refresh</button>
+    </header>
+
+    <section class="hero card" aria-labelledby="headlineLabel">
+      <div class="hero-copy">
+        <p class="eyebrow" id="headlineLabel">Overall assessment</p>
+        <div class="scoreline"><strong id="headline">—</strong><span>/100</span></div>
+        <div class="status-row"><span id="status" class="status">Collecting data</span><span id="confidence">Confidence —</span></div>
+        <p id="heroText" class="hero-text">Unknown data stays unknown. Missing sources reduce confidence rather than being treated as a shortage.</p>
+      </div>
+      <div class="ring-wrap" aria-hidden="true">
+        <div class="ring" id="scoreRing"><div><span id="ringScore">—</span><small>security</small></div></div>
+      </div>
+    </section>
+
+    <section class="horizons" aria-label="Assessment horizons">
+      <article class="mini card"><span>Now</span><strong id="currentScore">—</strong><small>0–48 hours</small></article>
+      <article class="mini card"><span>Outlook</span><strong id="outlookScore">—</strong><small>next 7 days</small></article>
+      <article class="mini card"><span>Resilience</span><strong id="strategicScore">—</strong><small>seasonal / structural</small></article>
+    </section>
+
+    <section class="section-head"><div><p class="eyebrow">System domains</p><h2>What is carrying the score</h2></div></section>
+    <section id="domains" class="domain-grid"></section>
+
+    <section class="two-col">
+      <article class="card panel">
+        <div class="panel-head"><div><p class="eyebrow">Attention</p><h2>What matters now</h2></div></div>
+        <div id="alerts" class="alerts"><p class="muted">No assessment yet.</p></div>
+      </article>
+      <article class="card panel">
+        <div class="panel-head"><div><p class="eyebrow">Electricity</p><h2>Generation mix</h2></div><span id="loadSummary" class="pill">—</span></div>
+        <div id="mix" class="mix"></div>
+      </article>
+    </section>
+
+    <section class="card panel history-panel">
+      <div class="panel-head"><div><p class="eyebrow">Local history</p><h2>Seven-day security trend</h2></div><span class="pill">Stored only in /data</span></div>
+      <div id="history" class="history" role="img" aria-label="Seven-day energy security score chart"></div>
+    </section>
+
+    <details class="card diagnostics">
+      <summary><span><span class="eyebrow">Diagnostics</span><strong>Sources, freshness and fallbacks</strong></span><span class="chev">⌄</span></summary>
+      <div class="diagnostic-body">
+        <div class="diag-block"><h3>Provider health</h3><div id="providers" class="provider-list"></div></div>
+        <div class="diag-block"><h3>Measurements</h3><div id="observations" class="obs-list"></div></div>
+        <div class="diag-block" id="notesWrap"><h3>Collection notes</h3><ul id="notes" class="notes"></ul></div>
+      </div>
+    </details>
+
+    <footer><span>Energy Security Monitor</span><span>Local processing · no telemetry · no project cloud dependency</span></footer>
+  </main>
+  <script src="app.js" defer></script>
+</body>
+</html>
