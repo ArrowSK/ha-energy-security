@@ -6,8 +6,10 @@ const domainsOrder = [
 const fmtScore = v => (v === null || v === undefined || Number.isNaN(Number(v))) ? "—" : Math.round(Number(v));
 const fmtNum = (v, d=1) => (v === null || v === undefined) ? "—" : Number(v).toLocaleString(undefined,{maximumFractionDigits:d});
 const age = t => {
-  if(!t) return "unknown";
-  const ms=Date.now()-new Date(t).getTime(); if(ms<0) return "just now";
+  if(!t) return "never";
+  const dt=new Date(t);
+  if(Number.isNaN(dt.getTime()) || dt.getUTCFullYear()<2000) return "never";
+  const ms=Date.now()-dt.getTime(); if(ms<0) return "just now";
   const m=Math.floor(ms/60000); if(m<1)return "just now"; if(m<60)return `${m} min ago`;
   const h=Math.floor(m/60); if(h<48)return `${h} h ago`; return `${Math.floor(h/24)} d ago`;
 };

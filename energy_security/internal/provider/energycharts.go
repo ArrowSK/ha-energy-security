@@ -40,11 +40,27 @@ func latest(series ecSeries, idx int) (float64, bool) {
 	return v, true
 }
 
+func energyChartsRange(now time.Time) (string, string) {
+	// Energy-Charts defaults to the current local day when no timestamps are
+	// supplied. Shortly after midnight that day can legitimately have no
+	// published data yet and the API returns 404. A short explicit lookback
+	// makes collection independent of publication timing while keeping the
+	// payload small.
+	end := now.UTC().Format("2006-01-02")
+	start := now.UTC().AddDate(0, 0, -2).Format("2006-01-02")
+	return start, end
+}
+
 func (p EnergyCharts) Collect(ctx context.Context, in Input) ([]model.Observation, error) {
 	if p.C == nil {
 		p.C = httpx.New()
 	}
-	u := "https://api.energy-charts.info/public_power?" + url.Values{"country": []string{in.Profile.EnergyCharts}}.Encode()
+	start, end := energyChartsRange(time.Now())
+	u := "https://api.energy-charts.info/public_power?" + url.Values{
+		"country": []string{in.Profile.EnergyCharts},
+		"start":   []string{start},
+		"end":     []string{end},
+	}.Encode()
 	b, _, err := p.C.Get(ctx, u, nil, 8<<20)
 	if err != nil {
 		return nil, err
