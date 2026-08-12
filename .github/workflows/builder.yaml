@@ -1,4 +1,4 @@
-name: Build and publish app
+name: Build app containers
 
 on:
   push:
@@ -21,5 +21,5 @@ jobs:
     uses: ./.github/workflows/build-app.yaml
     with:
       app: energy_security
-      publish: ${{ github.event_name == 'push' }}
+      publish: false
     secrets: inherit
