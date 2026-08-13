@@ -10,15 +10,30 @@
 <body>
   <main class="shell">
     <header class="topbar">
-      <div>
+      <div class="topbar-copy">
         <p class="eyebrow">National resilience monitor</p>
         <h1 id="countryName">Energy Security</h1>
         <p class="meta" id="updated">Waiting for the first assessment…</p>
       </div>
-      <button id="refreshBtn" class="refresh" type="button" aria-label="Refresh data">Refresh</button>
+      <div class="topbar-actions">
+        <button id="refreshBtn" class="icon-btn" type="button" aria-label="Refresh data" title="Refresh data">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-15.5-3L3 10m0 0V5m0 5h5M4 13a8.1 8.1 0 0 0 15.5 3L21 14m0 0v5m0-5h-5"/></svg>
+        </button>
+        <div class="menu-wrap">
+          <button id="menuBtn" class="icon-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="appMenu" title="Menu">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div id="appMenu" class="app-menu" hidden>
+            <button id="setupMenuBtn" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5ZM19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1a1.7 1.7 0 0 0-1.4-1.67 1.7 1.7 0 0 0-1.65.48l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.77 8.2a1.7 1.7 0 0 0-.48-1.65l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.8 4.77a1.7 1.7 0 0 0 1.65-.48l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.13.38.35.72.64 1 .3.28.68.42 1.1.4h.1v4h-.1a1.7 1.7 0 0 0-1.74.6Z"/></svg>
+              <span>Setup</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </header>
 
-    <section class="hero card" aria-labelledby="headlineLabel">
+    <section id="overview" class="hero card nav-section" aria-labelledby="headlineLabel">
       <div class="hero-copy">
         <p class="eyebrow" id="headlineLabel">Overall assessment</p>
         <div class="scoreline"><strong id="headline">—</strong><span>/100</span></div>
@@ -36,10 +51,12 @@
       <article class="mini card"><span>Resilience</span><strong id="strategicScore">—</strong><small>seasonal / structural</small></article>
     </section>
 
-    <section class="section-head"><div><p class="eyebrow">System domains</p><h2>What is carrying the score</h2></div></section>
-    <section id="domains" class="domain-grid"></section>
+    <section id="systems" class="nav-section">
+      <div class="section-head"><div><p class="eyebrow">System domains</p><h2>What is carrying the score</h2></div></div>
+      <div id="domains" class="domain-grid"></div>
+    </section>
 
-    <section class="two-col">
+    <section id="signals" class="two-col nav-section">
       <article class="card panel">
         <div class="panel-head"><div><p class="eyebrow">Attention</p><h2>What matters now</h2></div></div>
         <div id="alerts" class="alerts"><p class="muted">No assessment yet.</p></div>
@@ -50,22 +67,99 @@
       </article>
     </section>
 
-    <section class="card panel history-panel">
+    <section id="trend" class="card panel history-panel nav-section">
       <div class="panel-head"><div><p class="eyebrow">Local history</p><h2>Seven-day security trend</h2></div><span class="pill">Stored only in /data</span></div>
       <div id="history" class="history" role="img" aria-label="Seven-day energy security score chart"></div>
     </section>
 
-    <details class="card diagnostics">
-      <summary><span><span class="eyebrow">Diagnostics</span><strong>Sources, freshness and fallbacks</strong></span><span class="chev">⌄</span></summary>
-      <div class="diagnostic-body">
-        <div class="diag-block"><h3>Provider health</h3><div id="providers" class="provider-list"></div></div>
-        <div class="diag-block"><h3>Measurements</h3><div id="observations" class="obs-list"></div></div>
-        <div class="diag-block" id="notesWrap"><h3>Collection notes</h3><ul id="notes" class="notes"></ul></div>
+    <section id="diagnostics" class="nav-section diagnostics-section">
+      <div class="section-head"><div><p class="eyebrow">Diagnostics</p><h2>Sources and measurements</h2></div></div>
+      <div class="diagnostic-grid">
+        <article class="card panel source-panel">
+          <div class="panel-head"><div><p class="eyebrow">Sources</p><h2>Provider health & fallbacks</h2></div></div>
+          <div id="providers" class="provider-list"></div>
+          <div id="notesWrap" class="collection-notes" hidden>
+            <h3>Collection notes</h3>
+            <ul id="notes" class="notes"></ul>
+          </div>
+        </article>
+        <article class="card panel measurement-panel">
+          <div class="panel-head"><div><p class="eyebrow">Measurements</p><h2>Collected evidence</h2></div><span id="measurementCount" class="pill">—</span></div>
+          <div id="observations" class="measurement-groups"></div>
+        </article>
       </div>
-    </details>
+    </section>
 
     <footer><span>Energy Security Monitor</span><span>Local processing · no telemetry · no project cloud dependency</span></footer>
   </main>
+
+  <nav class="bottom-nav" aria-label="Dashboard sections">
+    <button class="nav-item active" type="button" data-target="overview" aria-label="Overview">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"/></svg><span>Overview</span>
+    </button>
+    <button class="nav-item" type="button" data-target="systems" aria-label="Domains">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h5v5H5V5Zm9 0h5v5h-5V5ZM5 14h5v5H5v-5Zm9 0h5v5h-5v-5Z"/></svg><span>Domains</span>
+    </button>
+    <button class="nav-item" type="button" data-target="signals" aria-label="Signals">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 20h18L12 3Zm0 5v6m0 3v.01"/></svg><span>Signals</span>
+    </button>
+    <button class="nav-item" type="button" data-target="trend" aria-label="Trend">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 17 5-5 4 3 7-8M4 20h16"/></svg><span>Trend</span>
+    </button>
+    <button class="nav-item" type="button" data-target="diagnostics" aria-label="Diagnostics">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M9 18h6"/><circle cx="4" cy="6" r="1"/><circle cx="7" cy="12" r="1"/><circle cx="9" cy="18" r="1"/></svg><span>Diagnostics</span>
+    </button>
+  </nav>
+
+  <dialog id="setupDialog" class="setup-dialog">
+    <form id="setupForm">
+      <div class="dialog-head">
+        <div><p class="eyebrow">Configuration</p><h2>Setup</h2></div>
+        <button id="setupCloseBtn" class="icon-btn" type="button" aria-label="Close setup">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <p class="setup-help">Settings are stored by Home Assistant Supervisor. Saving restarts this app so all changes take effect.</p>
+
+      <label class="field">
+        <span>Country</span>
+        <input id="setupCountry" name="country" type="text" list="countryOptions" maxlength="4" autocomplete="off" placeholder="auto or HU">
+        <datalist id="countryOptions"></datalist>
+        <small>Use <code>auto</code> for HOME, choose a known profile, or enter another two-letter ISO code.</small>
+      </label>
+
+      <label class="field">
+        <span>Refresh interval</span>
+        <div class="number-field"><input id="setupRefresh" name="refresh_minutes" type="number" min="10" max="180" step="1" inputmode="numeric"><span>minutes</span></div>
+      </label>
+
+      <label class="toggle-row"><span><strong>Home Assistant entities</strong><small>Publish the compact sensor set into Home Assistant.</small></span><input id="setupEntities" type="checkbox"></label>
+      <label class="toggle-row"><span><strong>Weather stress</strong><small>Use the HOME coordinates for the seven-day weather input.</small></span><input id="setupWeather" type="checkbox"></label>
+
+      <div class="secret-block">
+        <label class="field">
+          <span>GIE AGSI key <em id="agsiState"></em></span>
+          <input id="setupAGSI" type="password" autocomplete="off" placeholder="Leave blank to keep existing key">
+        </label>
+        <label class="clear-row"><input id="clearAGSI" type="checkbox"><span>Clear saved AGSI key</span></label>
+      </div>
+
+      <div class="secret-block">
+        <label class="field">
+          <span>ENTSO-E token <em id="entsoeState"></em></span>
+          <input id="setupENTSOE" type="password" autocomplete="off" placeholder="Leave blank to keep existing token">
+        </label>
+        <label class="clear-row"><input id="clearENTSOE" type="checkbox"><span>Clear saved ENTSO-E token</span></label>
+      </div>
+
+      <div id="setupStatus" class="setup-status" role="status"></div>
+      <div class="dialog-actions">
+        <button id="setupCancelBtn" class="secondary-btn" type="button">Cancel</button>
+        <button id="setupSaveBtn" class="primary-btn" type="submit">Save & restart</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="app.js" defer></script>
 </body>
 </html>
