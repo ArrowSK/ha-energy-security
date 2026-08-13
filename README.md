@@ -4,15 +4,16 @@ Energy Security Monitor is a self-contained Home Assistant app that turns public
 
 The normal setup is deliberately simple: add the repository, install the app, start it, and open the Ingress dashboard. By default it uses the country configured for Home Assistant's HOME location. A two-letter ISO country code can be supplied as an override.
 
-The app has no project account, telemetry service, licence server, remote configuration service, MQTT requirement, paid API requirement, or runtime dependency on this repository. Country profiles, provider logic, scoring rules, dashboard assets and fallback behaviour are shipped with the installed app. If this repository becomes unavailable after installation, the running app keeps working with its bundled logic and local cache.
+The app has no project account, telemetry service, licence server, remote configuration service, MQTT requirement, paid API requirement, or runtime dependency on this repository. Country profiles, provider logic, scoring rules, dashboard assets, a small versioned electricity reference table and fallback behaviour are shipped with the installed app. If this repository becomes unavailable after installation, the running app keeps working with its bundled logic and local cache.
 
-> **Release status:** 0.1.1 is an experimental reliability release. Hungary is the full reference profile. Broader European coverage is graded rather than pretending that every country publishes equivalent data.
+> **Release status:** 0.1.2 is an experimental usability and fallback-scoring release. Hungary is the full reference profile. Broader European coverage is graded rather than pretending that every country publishes equivalent data.
 
 ## What it measures
 
 Depending on country support and source availability, the app can use:
 
-- electricity generation and load;
+- electricity generation and live load when available;
+- a clearly labelled embedded annual-demand reference when fresh generation exists but live load is absent;
 - generation mix, including nuclear, solar, wind, hydro and thermal generation;
 - cross-border electricity trading where exposed by the selected feed;
 - gas storage/system measurements or a clearly labelled lower-frequency national stock proxy;
@@ -36,6 +37,8 @@ The headline combines those horizons and is always accompanied by a separate **c
 
 Missing data never becomes zero. Stale data does not contribute indefinitely. If a source fails, the app tries the next configured provider. If no fresh fallback exists, a last-known-good observation is retained only inside its defined freshness window. Missing domains reduce confidence instead of manufacturing a crisis.
 
+When live electricity load is absent but fresh generation is present, version 0.1.2 can use an embedded recent annual-demand reference for the selected country. It converts annual demand into an annual-average MW value, explicitly labels that derivation in the electricity description, sharply reduces confidence and composite weight, and never treats the reference as current or peak demand. Fresh live load always wins.
+
 The scoring model is deterministic. No LLM, news sentiment model or remote scoring service is in the decision path.
 
 ## Zero-configuration default
@@ -50,6 +53,8 @@ enable_weather: true
 ```
 
 Advanced users can optionally provide a GIE AGSI key to improve supported gas-storage coverage and an ENTSO-E Transparency Platform token for configured electricity fallback use. These are optional enhancements, not prerequisites.
+
+All normal options can also be changed from **Dashboard → menu → Setup**. Secret values are never returned from the app backend to the browser; blank secret fields preserve existing values unless the explicit clear control is selected.
 
 ## Self-healing behaviour
 
@@ -66,7 +71,9 @@ Cache writes use a temporary file and atomic rename. Historical dashboard points
 
 ## Dashboard and Home Assistant states
 
-The built-in dashboard is served through Home Assistant Ingress and is progressive rather than a wall of gauges. Its main view shows the national headline, confidence, three scoring horizons, domain scores, current stress signals, electricity generation mix and recent history. **Diagnostics** exposes provider state, source age, measurement quality, fallback errors and stale state.
+The built-in dashboard is served through Home Assistant Ingress. Version 0.1.2 adds an Android-style sticky bottom navigator for **Overview, Domains, Signals, Trend and Diagnostics**, keeps manual Refresh as a compact title-bar icon, and places configuration under the title-bar menu.
+
+Diagnostics separates **Sources** from **Measurements**. Measurement rows are grouped into collapsible domain/provider sections and use larger typography on mobile.
 
 The frontend has no external JavaScript, font, analytics or CDN dependency; its assets are embedded in the Go binary.
 
@@ -83,33 +90,25 @@ With `enable_ha_entities: true`, the app also publishes state-machine sensors th
 - selected generation/load/nuclear/renewable/storage measurements when available;
 - `sensor.energy_security_gas_national_stock` and `sensor.energy_security_gas_stock_index` when the Eurostat monthly gas fallback is active.
 
+The embedded electricity reference is scoring metadata and does not fabricate a live `electricity_load_mw` state.
+
 No MQTT broker or companion cloud service is required.
 
 ## Current source strategy
 
-The source order is: established machine-readable feeds first, optional official APIs second, public national pages where no stable unauthenticated structured feed exists, then local last-known-good state.
+The source order is: established machine-readable feeds first, optional official APIs second, public national pages where no stable unauthenticated structured feed exists, then explicitly labelled local fallbacks/cache where their semantics remain defensible.
 
 | Domain | Primary / fallback sources | Credentials | Current coverage |
 |---|---|---:|---|
-| Electricity | Energy-Charts → optional ENTSO-E | None / optional | Broad Europe |
+| Electricity | Energy-Charts → optional ENTSO-E → embedded annual-demand reference when only live load is missing | None / optional | Broad Europe |
 | Gas | FGSZ (HU) → optional GIE AGSI → Eurostat monthly gas stocks | None / optional | HU full chain; EU strategic fallback |
 | Oil | Eurostat emergency-stock dataset | None | EU profiles |
 | Water | HYDROINFO | None | Hungary |
 | Weather stress | Open-Meteo | None | HOME coordinates |
 
-Version 0.1.1 deliberately distinguishes actual gas storage fill from the keyless Eurostat monthly stock proxy. The proxy compares the latest national closing stock with the maximum in the returned 36-month window; it is lower confidence, is not used by itself to create a Current-horizon score, and is not labelled as physical capacity fill.
+The gas fallback deliberately distinguishes actual storage fill from the keyless Eurostat monthly stock proxy. The electricity fallback similarly distinguishes a derived annual-average load from live demand. Neither lower-fidelity fallback is allowed to masquerade as the primary measurement.
 
-See [Data sources](docs/DATA_SOURCES.md) and [Support matrix](docs/SUPPORT_MATRIX.md) for exact limitations.
-
-## 0.1.1 reliability fixes
-
-This release addresses three provider failures observed in normal Hungary operation:
-
-- **Energy-Charts `HTTP 404`:** the collector now sends an explicit recent date range instead of relying on the API's implicit current-day window around midnight/day rollover.
-- **Eurostat oil empty result:** the collector now looks across the latest 12 reporting periods and selects the newest available country value rather than assuming every country has a value in the newest global period.
-- **FGSZ no recognised measurements:** the adapter now identifies the absence of server-rendered live values as a safe provider failure, then falls through to optional AGSI or the new keyless Eurostat monthly gas-stock fallback.
-
-Diagnostics also renders a provider that has never succeeded as **Last success never** instead of interpreting Go's zero timestamp as an ancient date.
+See [Data sources](docs/DATA_SOURCES.md), [Electricity reference](docs/ELECTRICITY_REFERENCE.md) and [Support matrix](docs/SUPPORT_MATRIX.md) for exact limitations.
 
 ## Installation
 
@@ -127,7 +126,7 @@ The release gate is **under 50 MB steady-state RSS**. The engineering target is 
 
 ## Privacy and independence
 
-At runtime the app sends requests only to data providers needed for the configured country and, when enabled, Home Assistant's internal API. It does not send usage data to ArrowSK, GitHub or any project-operated service.
+At runtime the app sends requests only to data providers needed for the configured country, Home Assistant's internal API when state publication is enabled, and Home Assistant Supervisor when the user explicitly saves dashboard Setup. It does not send usage data to ArrowSK, GitHub or any project-operated service.
 
 There is no telemetry endpoint, analytics SDK, remote configuration backend, project API, licence server, GitHub polling, or automatic code/parser download.
 
@@ -137,6 +136,7 @@ There is no telemetry endpoint, analytics SDK, remote configuration backend, pro
 - [Architecture](docs/ARCHITECTURE.md)
 - [Scoring model](docs/SCORING.md)
 - [Data sources](docs/DATA_SOURCES.md)
+- [Embedded electricity reference](docs/ELECTRICITY_REFERENCE.md)
 - [Support matrix](docs/SUPPORT_MATRIX.md)
 - [Provider health and fallbacks](docs/PROVIDER_HEALTH.md)
 - [Privacy](docs/PRIVACY.md)
@@ -151,4 +151,4 @@ Copyright 2026 ArrowSK.
 
 The software is licensed under **PolyForm Noncommercial License 1.0.0**. This is a source-available noncommercial licence and is not an OSI-approved open-source licence. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-External data remains subject to the terms of its respective provider. No third-party provider dataset is bundled into the executable.
+Most runtime provider data remains subject to the respective provider's terms. The embedded electricity reference is derived from Ember yearly demand data under CC BY 4.0 and is attributed separately in [Third-party software and data](THIRD_PARTY_LICENSES.md).

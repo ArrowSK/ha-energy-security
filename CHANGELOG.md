@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.2 — 2026-08-13
+
+Dashboard usability and electricity-reference release.
+
+- Added an Android-style sticky bottom section navigator with Overview, Domains, Signals, Trend and Diagnostics destinations.
+- Moved manual refresh into the title bar as an icon action and added a title-bar menu.
+- Added dashboard Setup for country, refresh interval, Home Assistant entity publication, weather and optional AGSI/ENTSO-E credentials. Existing secrets are never returned to the browser; blank credential fields preserve them and explicit clear controls remove them.
+- Split Diagnostics into Sources and Measurements. Measurements are grouped into collapsible domain/provider sections and mobile diagnostic typography is larger.
+- Added an embedded electricity reference library for every supported country profile so fresh generation can still produce a cautious electricity score when live load is unavailable.
+- The electricity fallback derives annual-average load from Ember yearly demand data, discloses the derivation and source year, sharply reduces confidence/weight, and cannot trigger an electricity-stress alert by itself.
+- Added Ember CC BY 4.0 attribution and reference-data documentation.
+
 ## 0.1.1 — 2026-08-13
 
 Reliability and documentation release.

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ArrowSK/ha-energy-security/energy_security/internal/baseline"
 	"github.com/ArrowSK/ha-energy-security/energy_security/internal/model"
 )
 
@@ -19,6 +20,7 @@ func clamp(v, lo, hi float64) float64 {
 	}
 	return v
 }
+
 func val(obs map[string]model.Observation, k string) (float64, bool) {
 	o, ok := obs[k]
 	if !ok || o.Value == nil || o.Stale {
@@ -26,6 +28,7 @@ func val(obs map[string]model.Observation, k string) (float64, bool) {
 	}
 	return *o.Value, true
 }
+
 func quality(obs map[string]model.Observation, keys ...string) float64 {
 	var s float64
 	var n int
@@ -40,6 +43,7 @@ func quality(obs map[string]model.Observation, keys ...string) float64 {
 	}
 	return s / float64(n)
 }
+
 func status(score *float64, conf float64) string {
 	if score == nil {
 		return "Unknown"
@@ -61,6 +65,7 @@ func status(score *float64, conf float64) string {
 		return "Critical"
 	}
 }
+
 func weighted(items []struct{ s, c, w float64 }, expectedWeight float64) (*float64, float64) {
 	var sw, ss, cw float64
 	for _, x := range items {
@@ -82,13 +87,35 @@ func weighted(items []struct{ s, c, w float64 }, expectedWeight float64) (*float
 	return &v, clamp((cw/sw)*coverage, 0, 100)
 }
 
-func electricity(obs map[string]model.Observation) (model.DomainScore, *float64, float64) {
+func electricity(obs map[string]model.Observation, countryCode string) (model.DomainScore, *float64, float64, bool) {
 	gen, gok := val(obs, "electricity_generation_mw")
 	load, lok := val(obs, "electricity_load_mw")
 	cross, cok := val(obs, "electricity_cross_border_mw")
 	q := quality(obs, "electricity_generation_mw", "electricity_load_mw") * 100
+	estimatedLoad := false
+	var ref baseline.ElectricityReference
+
+	if gok && (!lok || load <= 0) {
+		if r, ok := baseline.Electricity(countryCode); ok {
+			if average := r.AverageLoadMW(); average > 0 {
+				ref = r
+				load = average
+				lok = true
+				estimatedLoad = true
+				// A historical annual average is useful when live load is absent,
+				// but it cannot represent the current hour, season or demand peak.
+				// Keep the numerical score available while sharply discounting
+				// confidence and composite weight.
+				q = quality(obs, "electricity_generation_mw") * 100 * 0.45
+			}
+		}
+	}
+
 	var cur *float64
-	summary := "Generation data available; load coverage unavailable."
+	summary := "No fresh electricity generation measurement is available."
+	if gok {
+		summary = "Generation data available; live load is unavailable and no embedded country reference is available."
+	}
 	if gok && lok && load > 0 {
 		imports := 0.0
 		if cok && cross < 0 {
@@ -97,15 +124,25 @@ func electricity(obs map[string]model.Observation) (model.DomainScore, *float64,
 		coverage := (gen + imports) / load
 		cs := clamp(20+(coverage-0.70)*200, 20, 96)
 		cur = &cs
-		summary = fmt.Sprintf("Generation %.0f MW against load %.0f MW", gen, load)
+		if estimatedLoad {
+			summary = fmt.Sprintf(
+				"Generation %.0f MW against derived reference load %.0f MW. Live consumption is unavailable; the load estimate uses the embedded %d Ember electricity-demand reference (%.2f TWh/year, population about %.2f million, %.2f MWh/person/year).",
+				gen, load, ref.Year, ref.DemandTWh, ref.PopulationMillions, ref.DemandMWhPerCapita,
+			)
+		} else {
+			summary = fmt.Sprintf("Generation %.0f MW against load %.0f MW", gen, load)
+		}
 		if cok {
 			if cross < 0 {
-				summary += fmt.Sprintf(", net trading implies %.0f MW imports", -cross)
+				summary += fmt.Sprintf(" Net trading implies %.0f MW imports.", -cross)
 			} else {
-				summary += fmt.Sprintf(", net trading implies %.0f MW exports", cross)
+				summary += fmt.Sprintf(" Net trading implies %.0f MW exports.", cross)
 			}
+		} else if !strings.HasSuffix(summary, ".") {
+			summary += "."
 		}
 	}
+
 	var strategic *float64
 	if o, ok := obs["electricity_generation_mw"]; ok && o.Attributes != nil {
 		if raw, ok := o.Attributes["mix_mw"].(map[string]float64); ok {
@@ -155,8 +192,13 @@ func electricity(obs map[string]model.Observation) (model.DomainScore, *float64,
 	if cur == nil && strategic != nil {
 		q *= 0.65
 	}
-	return model.DomainScore{Score: cur, Status: status(cur, q), Confidence: q, Summary: summary}, strategic, q
+	domainStatus := status(cur, q)
+	if estimatedLoad && cur != nil {
+		domainStatus = "Data limited"
+	}
+	return model.DomainScore{Score: cur, Status: domainStatus, Confidence: q, Summary: summary}, strategic, q, estimatedLoad
 }
+
 func gas(obs map[string]model.Observation, month time.Month) model.DomainScore {
 	fill, live := val(obs, "gas_storage_fill_pct")
 	q := quality(obs, "gas_storage_fill_pct") * 100
@@ -171,16 +213,16 @@ func gas(obs map[string]model.Observation, month time.Month) model.DomainScore {
 		proxy = true
 	}
 	if proxy {
-		// The Eurostat value is a relative stock-position proxy, not a physical
-		// storage-capacity percentage. Do not apply the live-fill seasonal
-		// thresholds to it. Keep it as a strategic, deliberately low-confidence
-		// signal; Score() excludes sub-40-confidence gas from the current horizon.
 		q *= 0.55
 		s := clamp(fill, 20, 95)
 		summary := fmt.Sprintf("Eurostat monthly national stock is %.1f%% of the trailing 36-month maximum. This is a low-confidence strategic stock proxy, not physical storage-capacity fill.", fill)
 		return model.DomainScore{Score: &s, Status: status(&s, q), Confidence: q, Summary: summary}
 	}
-	targets := map[time.Month]float64{time.January: 55, time.February: 40, time.March: 30, time.April: 28, time.May: 38, time.June: 50, time.July: 62, time.August: 72, time.September: 82, time.October: 90, time.November: 82, time.December: 68}
+	targets := map[time.Month]float64{
+		time.January: 55, time.February: 40, time.March: 30, time.April: 28,
+		time.May: 38, time.June: 50, time.July: 62, time.August: 72,
+		time.September: 82, time.October: 90, time.November: 82, time.December: 68,
+	}
 	target := targets[month]
 	s := clamp(75+(fill-target)*1.25, 20, 98)
 	if fill < 25 {
@@ -189,6 +231,7 @@ func gas(obs map[string]model.Observation, month time.Month) model.DomainScore {
 	summary := fmt.Sprintf("Storage %.1f%%; seasonal reference %.0f%%.", fill, target)
 	return model.DomainScore{Score: &s, Status: status(&s, q), Confidence: q, Summary: summary}
 }
+
 func oil(obs map[string]model.Observation) model.DomainScore {
 	days, ok := val(obs, "oil_emergency_stock_days")
 	q := quality(obs, "oil_emergency_stock_days") * 100
@@ -201,6 +244,7 @@ func oil(obs map[string]model.Observation) model.DomainScore {
 	s := clamp(35+(days-45)*1.1, 20, 98)
 	return model.DomainScore{Score: &s, Status: status(&s, q), Confidence: q, Summary: fmt.Sprintf("Emergency stocks %.1f days equivalent.", days)}
 }
+
 func water(obs map[string]model.Observation) model.DomainScore {
 	s, ok := val(obs, "water_security_proxy")
 	q := quality(obs, "water_security_proxy") * 100
@@ -213,6 +257,7 @@ func water(obs map[string]model.Observation) model.DomainScore {
 	}
 	return model.DomainScore{Score: &s, Status: status(&s, q), Confidence: q, Summary: "Current hydrological assessment: " + txt + "."}
 }
+
 func weather(obs map[string]model.Observation) model.DomainScore {
 	mx, mxok := val(obs, "forecast_max_temperature_c")
 	mn, mnok := val(obs, "forecast_min_temperature_c")
@@ -265,7 +310,7 @@ func Score(s *model.Snapshot) {
 	if s.Domains == nil {
 		s.Domains = map[string]model.DomainScore{}
 	}
-	e, estrat, _ := electricity(s.Observations)
+	e, estrat, _, electricityEstimated := electricity(s.Observations, s.Country)
 	g := gas(s.Observations, s.UpdatedAt.Month())
 	o := oil(s.Observations)
 	w := water(s.Observations)
@@ -275,6 +320,7 @@ func Score(s *model.Snapshot) {
 	s.Domains["oil"] = o
 	s.Domains["water"] = w
 	s.Domains["weather"] = wx
+
 	if n, ok := val(s.Observations, "nuclear_output_mw"); ok {
 		s.Domains["nuclear"] = model.DomainScore{Status: "Observed", Confidence: quality(s.Observations, "nuclear_output_mw") * 100, Summary: fmt.Sprintf("Current nuclear output %.0f MW.", n)}
 	} else {
@@ -285,19 +331,25 @@ func Score(s *model.Snapshot) {
 	} else {
 		s.Domains["renewables"] = model.DomainScore{Status: "Unknown", Summary: "Renewable share unavailable."}
 	}
+
 	items := []struct{ s, c, w float64 }{}
 	add := func(d model.DomainScore, wgt float64) {
 		if d.Score != nil {
 			items = append(items, struct{ s, c, w float64 }{*d.Score, d.Confidence, wgt})
 		}
 	}
-	add(e, 0.50)
+	electricityWeight := 0.50
+	if electricityEstimated {
+		electricityWeight = 0.25
+	}
+	add(e, electricityWeight)
 	if g.Confidence >= 40 {
 		add(g, 0.30)
 	}
 	add(w, 0.10)
 	add(wx, 0.10)
 	cur, cc := weighted(items, 1.0)
+
 	outItems := []struct{ s, c, w float64 }{}
 	if cur != nil {
 		outItems = append(outItems, struct{ s, c, w float64 }{*cur, cc, 0.7})
@@ -306,6 +358,7 @@ func Score(s *model.Snapshot) {
 		outItems = append(outItems, struct{ s, c, w float64 }{*wx.Score, wx.Confidence, 0.3})
 	}
 	out, oc := weighted(outItems, 1.0)
+
 	stItems := []struct{ s, c, w float64 }{}
 	if estrat != nil {
 		stItems = append(stItems, struct{ s, c, w float64 }{*estrat, e.Confidence, 0.45})
@@ -320,6 +373,7 @@ func Score(s *model.Snapshot) {
 		stItems = append(stItems, struct{ s, c, w float64 }{*w.Score, w.Confidence, 0.10})
 	}
 	st, sc := weighted(stItems, 1.0)
+
 	hItems := []struct{ s, c, w float64 }{}
 	if cur != nil {
 		hItems = append(hItems, struct{ s, c, w float64 }{*cur, cc, 0.55})
@@ -332,8 +386,9 @@ func Score(s *model.Snapshot) {
 	}
 	head, hc := weighted(hItems, 1.0)
 	s.Scores = model.Scores{Current: cur, Outlook7D: out, Strategic: st, Headline: head, Confidence: hc, Status: status(head, hc)}
+
 	alerts := []string{}
-	if e.Score != nil && *e.Score < 55 {
+	if e.Score != nil && *e.Score < 55 && !electricityEstimated {
 		alerts = append(alerts, "Electricity supply indicators are under stress.")
 	}
 	if g.Score != nil && *g.Score < 50 {

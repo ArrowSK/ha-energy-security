@@ -72,3 +72,55 @@ func TestEurostatGasProxyProducesLowerConfidenceScore(t *testing.T) {
 		t.Fatalf("proxy summary must disclose the limitation: %q", g.Summary)
 	}
 }
+
+func TestElectricityUsesEmbeddedReferenceWhenLiveLoadMissing(t *testing.T) {
+	s := model.Snapshot{
+		Country:   "HU",
+		UpdatedAt: time.Date(2026, time.August, 13, 8, 0, 0, 0, time.UTC),
+		Observations: map[string]model.Observation{
+			"electricity_generation_mw": measurement("electricity_generation_mw", 6000, .9),
+		},
+	}
+	Score(&s)
+	e := s.Domains["electricity"]
+	if e.Score == nil {
+		t.Fatal("expected electricity score using embedded country reference")
+	}
+	if s.Scores.Current == nil {
+		t.Fatal("derived electricity reference should allow a partial current score")
+	}
+	if e.Confidence >= 50 {
+		t.Fatalf("derived reference must carry discounted confidence, got %.1f", e.Confidence)
+	}
+	if e.Status != "Data limited" {
+		t.Fatalf("derived reference must be visibly data limited, got %q", e.Status)
+	}
+	text := strings.ToLower(e.Summary)
+	for _, want := range []string{"live consumption is unavailable", "ember", "48.73 twh", "population"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("derived summary must disclose %q: %q", want, e.Summary)
+		}
+	}
+}
+
+func TestLiveElectricityLoadPreferredOverEmbeddedReference(t *testing.T) {
+	s := model.Snapshot{
+		Country:   "HU",
+		UpdatedAt: time.Date(2026, time.August, 13, 8, 0, 0, 0, time.UTC),
+		Observations: map[string]model.Observation{
+			"electricity_generation_mw": measurement("electricity_generation_mw", 6000, .9),
+			"electricity_load_mw":       measurement("electricity_load_mw", 5800, .9),
+		},
+	}
+	Score(&s)
+	e := s.Domains["electricity"]
+	if e.Score == nil {
+		t.Fatal("expected live electricity score")
+	}
+	if strings.Contains(strings.ToLower(e.Summary), "derived reference") || strings.Contains(strings.ToLower(e.Summary), "live consumption is unavailable") {
+		t.Fatalf("live load must be preferred over embedded reference: %q", e.Summary)
+	}
+	if e.Confidence < 80 {
+		t.Fatalf("live load unexpectedly received fallback confidence %.1f", e.Confidence)
+	}
+}

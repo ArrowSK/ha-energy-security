@@ -9,7 +9,7 @@ RUN CGO_ENABLED=0 go test ./... \
  && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${BUILD_VERSION:-dev}" -o /out/energy-security ./cmd/energy-security
 
 FROM ghcr.io/home-assistant/base:3.24
-ARG BUILD_VERSION=0.1.1
+ARG BUILD_VERSION=0.1.2
 ARG BUILD_ARCH
 LABEL io.hass.version="${BUILD_VERSION}" \
       io.hass.type="app" \

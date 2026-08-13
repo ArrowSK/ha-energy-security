@@ -13,7 +13,7 @@ The app reports:
 
 Every score is paired with a separate **confidence** percentage.
 
-The headline weights in 0.1.0 are:
+The headline weights are:
 
 - current: 55%;
 - seven-day: 25%;
@@ -25,21 +25,19 @@ These values are versioned implementation choices and may be refined as more sec
 
 Missing and stale data are excluded from score arithmetic. They are not converted to zero.
 
-The weighted-score helper tracks the amount of expected evidence that was actually present. Confidence is multiplied by that coverage. Therefore:
+The weighted-score helper tracks the amount of expected evidence that was actually present. Confidence is multiplied by that coverage. Therefore a country can still have a provisional score when a domain is unavailable, while confidence falls because the evidence base is incomplete.
 
-- a country can still have a reasonable provisional score when a domain is unavailable;
-- its confidence falls because the evidence base is incomplete;
-- a country with sparse sources does not look artificially dangerous merely because it publishes less data.
+Version 0.1.2 adds one explicitly bounded exception to “no derivation”: if fresh electricity generation exists but live load is absent, an embedded annual-demand reference for the selected country can provide a low-confidence annual-average load. It is not inserted as a live observation and its derivation is disclosed in the electricity description.
 
 ## Freshness and quality
 
-A usable observation must be inside its TTL. Each provider also supplies a quality estimate between 0 and 1. Domain confidence is derived from quality and evidence coverage.
+A usable runtime observation must be inside its TTL. Each provider also supplies a quality estimate between 0 and 1. Domain confidence is derived from quality and evidence coverage.
 
 Cached observations are allowed to bridge short provider outages only while still fresh. Once their TTL expires they remain visible in Diagnostics but stop contributing.
 
 ## Current score
 
-The current score is built from available operational domains. The default expected weights are:
+The normal expected operational weights are:
 
 | Domain | Expected weight |
 |---|---:|
@@ -48,21 +46,38 @@ The current score is built from available operational domains. The default expec
 | Water | 10% |
 | Weather | 10% |
 
-The app does not force a missing gas/water/weather domain into the score; the missing expected weight reduces confidence.
+A missing gas/water/weather domain is not forced into the score; the missing expected weight reduces confidence.
 
-### Electricity
+### Electricity with live load
 
 When both generation and load are available, generation relative to load is the main short-term adequacy proxy. Net electricity imports can close part of an observed generation shortfall; net exports do not count as extra domestic reserve.
 
-This is intentionally cautious: public generation/load data are not the same as certified available capacity or operating reserve. The current electricity score is therefore capped and described as an operational proxy, not an adequacy guarantee.
+This remains an operational proxy rather than certified available capacity or operating reserve.
+
+### Electricity with derived reference load
+
+If live load is unavailable but fresh generation exists, the scorer can look up the selected country in the embedded Ember-derived electricity reference library. Annual demand is converted to annual-average MW:
+
+`annual demand TWh × 1,000,000 / 8,760`
+
+This reference is not current demand, peak demand, seasonal demand or a forecast. The resulting electricity-domain description explicitly states that live consumption is unavailable and gives the source year, annual demand, approximate population and per-capita annual demand.
+
+To prevent false precision:
+
+- electricity-domain confidence becomes `generation quality × 45%`;
+- electricity weight in the Current composite is reduced from 50% to 25%;
+- the estimated path cannot emit the live electricity-stress alert by itself;
+- fresh live load immediately bypasses the reference.
+
+See `ELECTRICITY_REFERENCE.md` for source and update methodology.
 
 ### Gas
 
-Gas storage fill is compared with a month-dependent seasonal target. Storage is a resilience signal, not a complete supply model; pipeline/LNG flow and demand coverage should become additional evidence as adapters mature.
+Fresh physical gas storage fill is compared with a month-dependent seasonal target. If only the Eurostat monthly national-stock proxy is available, that signal remains strategic/data-limited and is excluded from the Current horizon when its confidence is below 40%.
 
 ### Water
 
-In Hungary 0.1.0 uses the HYDROINFO qualitative hydrological proxy. It affects the score modestly because it is not yet a direct national generation-capacity measurement.
+The Hungary HYDROINFO qualitative hydrological proxy affects the score modestly because it is not a direct national generation-capacity measurement.
 
 ### Weather
 
@@ -73,7 +88,7 @@ Forecast heat, cold, wind and precipitation extremes can lower the seven-day str
 Strategic resilience currently combines evidence from:
 
 - electricity generation diversity;
-- gas storage;
+- gas storage/stock evidence;
 - plausible emergency-oil days where available;
 - hydrological state.
 
@@ -89,7 +104,7 @@ Numeric scores are mapped to plain-language bands for display. Confidence stays 
 
 ## What is intentionally not scored
 
-0.1.0 excludes:
+The app excludes:
 
 - news sentiment;
 - social-media signals;

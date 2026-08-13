@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.2 — 2026-08-13
+
+### Added
+
+- Sticky Android-style bottom navigation for the dashboard sections.
+- Compact title-bar Refresh and hamburger actions.
+- Dashboard Setup editor backed by Home Assistant Supervisor's self-app options API. Secret values are never returned to the browser; unchanged blank secret fields preserve current values.
+- Separate Sources and Measurements diagnostic cards.
+- Collapsible measurement groups and larger diagnostic/mobile typography.
+- Embedded electricity demand/population reference data for all 39 country profiles.
+
+### Changed
+
+- If fresh electricity generation exists but live load does not, the electricity scorer can use a clearly labelled annual-average demand reference instead of returning no electricity score.
+- Reference-load confidence is 45% of generation-source quality and its Current-composite weight is reduced from 0.50 to 0.25.
+- A score based on the annual reference cannot by itself emit the live electricity-stress alert.
+- Version and runtime user agent are 0.1.2.
+
+### Data attribution
+
+- Embedded electricity references are derived from Ember yearly electricity-demand data (CC BY 4.0). See `docs/ELECTRICITY_REFERENCE.md` and `THIRD_PARTY_LICENSES.md`.
+
 ## 0.1.1 — 2026-08-13
 
 ### Fixed

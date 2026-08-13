@@ -2,7 +2,7 @@
 
 The source policy is: use the simplest reliable public source first, keep credentials optional, preserve source identity on every observation, and fail visibly rather than guessing.
 
-No third-party provider dataset is bundled into the application. Runtime observations are requested directly from the providers below. Country profiles and parser/scoring logic are bundled locally with the installed release.
+Most current observations are requested directly from the providers below. Country profiles, parser/scoring logic and one small electricity-reference table are bundled locally with the installed release. The embedded reference table is documented separately and is never presented as live data.
 
 ## Electricity — Energy-Charts
 
@@ -20,6 +20,24 @@ The adapter extracts, when present:
 - generation-mix attributes used for the structural diversity calculation.
 
 Cross-border trading is retained as published; the scoring engine treats negative values as net imports and positive values as net exports. The parser rejects responses with no timestamp or no recognised measurement and never fabricates absent generation types.
+
+## Embedded electricity reference when live load is missing
+
+This is not a network provider. It is a release-time fallback table derived from Ember's yearly electricity-demand data (CC BY 4.0) and covers every country profile embedded in the app.
+
+It is used only when:
+
+1. a fresh live generation observation exists; and
+2. no fresh live electricity load exists; and
+3. the selected country has an embedded reference row.
+
+The table stores source year, annual demand, per-capita demand and an approximate population derived from those two values. The scorer converts annual demand into an arithmetic annual-average load using `TWh × 1,000,000 / 8,760`.
+
+That figure is **not current load, peak load, seasonal normal load or a forecast**. The electricity-domain description explicitly says that live consumption is unavailable and prints the reference year and basis. Confidence is reduced to 45% of the live generation quality, electricity's Current-composite weight is halved, and the estimated path cannot create the electricity-stress alert by itself. Fresh live load always overrides the reference.
+
+Most rows in version 0.1.2 use 2024 Ember demand data. Ukraine uses 2022, the latest row available in the source snapshot used for this release; the year is therefore visible in the resulting description rather than silently treated as current.
+
+See [Embedded electricity reference library](ELECTRICITY_REFERENCE.md) and `THIRD_PARTY_LICENSES.md`.
 
 ## Electricity fallback — ENTSO-E Transparency Platform
 
@@ -64,7 +82,7 @@ The key is sent in an HTTP header and is not copied into observation URLs or das
 
 Provider ID: `eurostat_gas`
 
-For Eurostat-enabled profiles, version 0.1.1 adds a credential-free strategic fallback based on dataset `nrg_stk_gasm` with these explicit filters:
+For Eurostat-enabled profiles, version 0.1.1 added a credential-free strategic fallback based on dataset `nrg_stk_gasm` with these explicit filters:
 
 - `siec=G3000` — natural gas;
 - `stk_flow=STKCL_NAT` — closing stock on national territory;
@@ -115,12 +133,13 @@ For new adapters, prefer:
 2. official free API;
 3. established independent structured feed;
 4. narrowly scoped official HTML parser;
-5. local last-known-good observation.
+5. an explicitly labelled, versioned local reference only where its semantics remain defensible;
+6. local last-known-good observation.
 
 A project-operated proxy, telemetry backend or remote parser/configuration service is intentionally out of scope because it would make installed systems depend on project infrastructure.
 
 ## Freshness and semantic compatibility
 
-Fallback values are not interchangeable merely because they concern the same topic. If a fallback represents a different concept, it must use a different key and lower confidence rather than masquerading as the primary metric. The gas stock index is the reference implementation of this rule.
+Fallback values are not interchangeable merely because they concern the same topic. If a fallback represents a different concept, it must use a different key or visibly reduced confidence rather than masquerading as the primary metric. The gas stock index and the derived electricity annual-average load are examples of this rule.
 
-Each observation retains source, source URL, observation time, retrieval time, quality, TTL and stale state. Stale observations remain visible for diagnosis but are excluded from scoring.
+Each runtime observation retains source, source URL, observation time, retrieval time, quality, TTL and stale state. Stale observations remain visible for diagnosis but are excluded from scoring. Embedded electricity reference values are static release metadata and are identified as such in the domain description rather than emitted as live observations.
