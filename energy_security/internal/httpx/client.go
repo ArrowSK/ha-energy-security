@@ -16,7 +16,7 @@ type Client struct {
 }
 
 func New() *Client {
-	return &Client{HTTP: &http.Client{Timeout: 15 * time.Second}, UserAgent: "ha-energy-security/0.1.3"}
+	return &Client{HTTP: &http.Client{Timeout: 15 * time.Second}, UserAgent: "ha-energy-security/0.1.5"}
 }
 
 func (c *Client) Get(ctx context.Context, url string, headers map[string]string, maxBytes int64) ([]byte, int, error) {

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.5 — 2026-08-13
+
+Dashboard hierarchy refinement.
+
+- Removed the duplicate visible Generation mix card from Signals; electricity generation detail now has one canonical presentation under Electricity supporting indicators.
+- Made every domain's supporting-indicator section collapsed by default and expandable on click. A section the user opens remains open through normal dashboard refreshes.
+- Added percentage context to electricity generation components. When live load is available, each generation source is shown as a percentage of current load; if live load is unavailable, the fallback basis is explicitly current generation instead.
+- Added percentage-of-load context for cross-border electricity balance when live load is available.
+- Kept generation diversity as a normalized structural score rather than mislabelling it as a generation share.
+- Kept the scoring engine, provider order, freshness rules, fallbacks and Home Assistant entity behaviour unchanged.
+
+## 0.1.4 — 2026-08-13
+
+Dashboard hierarchy correction.
+
+- Reduced the top-level domain view to the five actually scored security domains: Electricity, Gas, Oil reserves, Hydrology and Weather stress.
+- Moved nuclear, renewables and other generation evidence underneath Electricity as supporting indicators instead of rendering them as fake scored domains with empty bars.
+- Added compact supporting-indicator groups for gas storage, oil reserves, hydrology and weather without inventing 0–100 scores for raw measurements.
+- Exposed generation diversity as the genuine normalized sub-score already used by the resilience model.
+- Made Diagnostics measurement groups collapsed on first load while preserving groups the user manually opens during dashboard refreshes.
+
 ## 0.1.3 — 2026-08-13
 
 Freshness-policy correction.
@@ -27,7 +48,7 @@ Dashboard usability and electricity-reference release.
 Reliability and documentation release.
 
 - Fixed Energy-Charts collection around midnight by requesting an explicit multi-day window instead of relying on the API's current-day default.
-- Fixed Eurostat emergency-oil selection by looking back across recent reporting periods and choosing the latest available country value rather than assuming every Member State has data in the newest global period.
+- Fixed Eurostat oil-stock selection by looking back across recent reporting periods and choosing the latest available country value rather than assuming every Member State has data in the newest global period.
 - Added a keyless Eurostat monthly natural-gas stock fallback for EU profiles. It is deliberately exposed as a lower-confidence stock index, not as storage-capacity fill.
 - Improved the FGSZ failure path when its public page does not server-render live values, allowing the provider chain to fall through cleanly.
 - Fixed Diagnostics showing year-0001 provider timestamps as hundreds of thousands of days ago; a provider with no successful sample now shows `never`.

@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.1.5 — 2026-08-13
+
+### Dashboard
+
+- Removed the duplicate visible **Generation mix** card from Signals. Electricity generation detail now lives in one place: the expandable supporting indicators inside the Electricity security-domain card.
+- Supporting-indicator groups for every security domain start collapsed and expand on click. If the user opens one, that open state is preserved through normal periodic/manual dashboard refreshes.
+- Electricity generation components now show their MW value plus percentage context. With live load available, the percentage is the component's share of current load. If live load is unavailable, the UI explicitly switches the denominator to current generation rather than presenting a derived load as live.
+- Cross-border imports/exports show their percentage of current load when live load exists.
+- Generation diversity remains a normalized 0–100 structural diversity score and is not labelled as a generation share.
+
+### Interpretation
+
+- Nuclear, solar, wind, gas-fired, coal/lignite, biomass, hydro and other source rows are observations, not independent security scores.
+- The visual reorganisation does not change scoring weights, freshness handling, provider order, fallback selection, alerts or Home Assistant state publication.
+
+## 0.1.4 — 2026-08-13
+
+### Dashboard
+
+- Reworked **Domains** into a proper hierarchy. Only Electricity, Gas, Oil reserves, Hydrology and Weather stress are rendered as top-level scored security domains.
+- Nuclear and Renewables no longer appear as top-level cards with `—` scores. They are supporting electricity observations instead.
+- Added compact supporting groups for electricity generation, gas storage, oil reserve evidence, hydrology and weather.
+- Exposed generation diversity as the real normalized diversity sub-score used by Strategic Resilience.
+- Diagnostics measurement groups now start collapsed and preserve the groups the user manually opens during refreshes.
+
+### Interpretation
+
+- Raw MW, TWh, percentage, river and weather observations are not converted into arbitrary 0–100 security scores merely to fill a progress bar.
+
 ## 0.1.3 — 2026-08-13
 
 ### Fixed
