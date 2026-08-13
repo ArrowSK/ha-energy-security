@@ -49,7 +49,7 @@ h3{font-size:.95rem}
 .mini strong{font-size:1.8rem;grid-row:1/3;grid-column:2}
 .mini small{color:#758994}
 .section-head{display:flex;justify-content:space-between;align-items:end;margin:34px 4px 14px}
-.domain-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.domain-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .domain{padding:18px;min-height:168px;display:flex;flex-direction:column}
 .domain-top{display:flex;justify-content:space-between;gap:14px;align-items:center}
 .domain h3{margin:0;font-size:.98rem}
@@ -57,7 +57,17 @@ h3{font-size:.95rem}
 .bar{height:5px;background:rgba(255,255,255,.08);border-radius:20px;overflow:hidden;margin:15px 0 12px}
 .bar>i{display:block;height:100%;width:0;background:var(--accent);border-radius:inherit}
 .domain p{color:var(--muted);font-size:.84rem;line-height:1.5;margin:0}
-.domain .domain-status{margin-top:auto;padding-top:10px;color:#cbd8dd;font-size:.78rem}
+.domain .domain-status{padding-top:10px;color:#cbd8dd;font-size:.78rem}
+.domain-indicators{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.065)}
+.indicator-title{margin-bottom:9px;color:var(--muted);font-size:.7rem;font-weight:780;letter-spacing:.11em;text-transform:uppercase}
+.indicator-list{display:grid;gap:9px}
+.indicator-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:2px 0}
+.indicator-copy{min-width:0;display:grid;gap:2px}
+.indicator-copy>span{font-size:.84rem;font-weight:680}
+.indicator-copy>small{color:var(--muted);font-size:.72rem;line-height:1.35}
+.indicator-row>strong{font-size:.86rem;text-align:right;white-space:nowrap}
+.indicator-meter{grid-column:1/-1;height:4px;background:rgba(255,255,255,.065);border-radius:20px;overflow:hidden}
+.indicator-meter>i{display:block;height:100%;border-radius:inherit}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
 .panel{padding:20px;min-height:260px}
 .panel-head{display:flex;align-items:start;justify-content:space-between;gap:15px;margin-bottom:18px}
@@ -140,7 +150,7 @@ h3{font-size:.95rem}
 footer{display:flex;justify-content:space-between;gap:16px;color:#69808c;font-size:.76rem;padding:24px 4px 0}
 
 @media(max-width:900px){
-  .domain-grid{grid-template-columns:repeat(2,1fr)}
+  .domain-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .two-col,.diagnostic-grid{grid-template-columns:1fr}
 }
 @media(max-width:620px){
@@ -160,6 +170,9 @@ footer{display:flex;justify-content:space-between;gap:16px;color:#69808c;font-si
   footer{flex-direction:column}
   .domain p,.domain .domain-status,.provider,.observation,.notes,.alert,.meta,.muted{font-size:.94rem}
   .provider small,.observation small,.notes{font-size:.9rem}
+  .indicator-copy>span,.indicator-row>strong{font-size:.9rem}
+  .indicator-copy>small{font-size:.8rem}
+  .indicator-title{font-size:.74rem}
   .measurement-group>summary{font-size:.98rem;padding:14px}
   .measurement-group .group-count{font-size:.86rem}
   .panel-head h2,.section-head h2{font-size:1.16rem}
