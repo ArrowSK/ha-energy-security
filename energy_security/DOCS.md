@@ -13,9 +13,34 @@ Energy Security Monitor is an analytical monitor, not an official security-of-su
 
 ## Dashboard navigation
 
-Version 0.1.2 uses a sticky bottom navigation bar designed for both phone and desktop use. The five destinations are **Overview**, **Domains**, **Signals**, **Trend** and **Diagnostics**. The currently visible section is highlighted as the page scrolls.
+The dashboard uses a sticky bottom navigation bar designed for both phone and desktop use. The five destinations are **Overview**, **Domains**, **Signals**, **Trend** and **Diagnostics**. The currently visible section is highlighted as the page scrolls.
 
 Manual refresh is the circular-arrow action in the title bar. The menu action beside it opens **Setup**.
+
+## Domain hierarchy and supporting indicators
+
+The dashboard distinguishes a security score from the observations that explain it.
+
+Only five top-level cards are scored security domains:
+
+- **Electricity**
+- **Gas**
+- **Oil reserves**
+- **Hydrology**
+- **Weather stress**
+
+Nuclear output, renewable share, individual generation sources, gas-storage details, reserve measurements, river measurements and weather readings are supporting evidence. They are not promoted into separate 0–100 security scores merely to fill a progress bar.
+
+Each domain has an expandable supporting-indicator section. These sections start **collapsed by default** and open on click. Once a section is manually opened, the dashboard preserves that state through normal periodic or manual refreshes.
+
+Electricity is the most detailed example. Its supporting indicators replace the older standalone **Generation mix** card so the same generation evidence is not shown twice. Generation rows show their MW value and a percentage share:
+
+- when live electricity load is available, the percentage is **share of current load**;
+- when live load is unavailable but generation is available, the UI explicitly uses **share of current generation** instead;
+- cross-border imports/exports show their percentage of current load when live load exists;
+- **Generation diversity** remains a normalized structural 0–100 score derived from the mix and is deliberately not labelled as a generation share.
+
+The aggregate Renewable share observation remains a percentage of current load as supplied/derived by the electricity feed. Individual source rows such as Nuclear, Solar, Wind, Gas-fired, Coal/lignite, Biomass and Hydroelectric provide their own MW and percentage context.
 
 ## Configuration and dashboard Setup
 
@@ -42,9 +67,9 @@ Not every country publishes equivalent data. Missing evidence remains unknown un
 
 ## Electricity when live load is missing
 
-A recurring source limitation is that generation may be available while current load/consumption is absent. From 0.1.2, the app has an embedded electricity reference row for every current country profile. The reference contains a source year, annual electricity demand, annual demand per capita and approximate population derived from the same source row.
+A recurring source limitation is that generation may be available while current load/consumption is absent. The app has an embedded electricity reference row for every current country profile. The reference contains a source year, annual electricity demand, annual demand per capita and approximate population derived from the same source row.
 
-If fresh live generation is present but live load is not, the app can derive an annual-average reference load:
+If fresh usable generation is present but live load is not, the app can derive an annual-average reference load:
 
 `annual demand TWh × 1,000,000 / 8,760 = average MW`
 
@@ -52,23 +77,35 @@ This is not current or peak demand. The electricity card explicitly says that **
 
 Safeguards are intentional: confidence is reduced to 45% of live generation quality, electricity's Current-composite weight is halved from 0.50 to 0.25, and the derived path cannot emit the live electricity-stress alert by itself. Fresh live load always wins immediately.
 
+The fallback reference is used by scoring only. It does not fabricate a live `electricity_load_mw` observation or Home Assistant sensor. In the supporting-indicator UI, percentage labels therefore use current generation as the explicit denominator when no live load observation exists.
+
 See `docs/ELECTRICITY_REFERENCE.md` for the complete methodology and attribution.
 
 ## Score horizons
 
-- **Current** — fresh operational evidence, weighted mainly toward electricity and fresh actual gas-storage evidence. A derived annual electricity reference may contribute only at reduced weight/confidence.
+- **Current** — fresh or still-usable operational evidence, weighted mainly toward electricity and actual gas-storage evidence. A derived annual electricity reference may contribute only at reduced weight/confidence.
 - **7-day Outlook** — current evidence combined with near-term weather stress.
 - **Strategic Resilience** — slower-moving evidence such as generation diversity, gas stocks/storage, emergency oil and hydrology.
 
 The **Headline** combines those horizons. **Confidence** reflects evidence coverage and source quality.
 
-A weaker fallback may still produce a score with reduced confidence. Stale runtime values stop contributing after their TTL.
+A weaker fallback may still produce a score with reduced confidence. Observations stop contributing after their hard validity window.
+
+## Freshness and delayed reporting
+
+Provider request health and observation freshness are separate concepts. A provider can answer successfully today while the newest published observation is older.
+
+Energy-Charts electricity observations have a preferred freshness window of 90 minutes and a six-hour hard expiry. Between those points the data remain usable while confidence decays progressively.
+
+GIE AGSI storage-level evidence is daily data: storage fill, stored volume, working capacity and storage-versus-consumption have a 48-hour preferred window and a seven-day hard expiry. Daily flow/trend observations use a shorter 36-hour preferred window and four-day hard expiry.
+
+This avoids both extremes: a modest publication delay does not erase an otherwise useful domain score, while genuinely old cache data cannot remain current indefinitely.
 
 ## Provider order and self-healing
 
 Providers are tried locally in a fixed order. The principal chains are:
 
-- Electricity: Energy-Charts → optional ENTSO-E → local last-known-good cache; if fresh generation survives but live load does not, the embedded annual demand reference may be used for scoring.
+- Electricity: Energy-Charts → optional ENTSO-E → local last-known-good cache; if usable generation survives but live load does not, the embedded annual demand reference may be used for scoring.
 - Hungary gas: FGSZ → optional GIE AGSI → keyless Eurostat monthly gas stocks → cache.
 - EU gas where Eurostat is enabled: keyless Eurostat monthly gas stocks, with AGSI available when configured.
 - Oil: Eurostat emergency-oil dataset → cache.
@@ -87,7 +124,7 @@ Diagnostics is split into two distinct areas.
 
 **Sources** shows provider health, last success/failure information, latency and collection notes. A failed provider is a data-source event, not evidence of an energy emergency; another source in the same domain may still be active.
 
-**Measurements** shows the observations separately. Measurements are grouped into collapsible electricity/gas/oil/water/weather/etc. sections so a mobile screen is not forced through one long flat list. Each row shows value, source, age/stale state and quality.
+**Measurements** shows the observations separately. Measurements are grouped into collapsible electricity/gas/oil/hydrology/weather/etc. sections so a mobile screen is not forced through one long flat list. Every measurement group starts collapsed. If the user opens one, that state is preserved during normal dashboard refreshes. Each row shows value, source, age/stale state and quality.
 
 Provider states mean:
 
@@ -130,7 +167,7 @@ If a domain is Unknown/Data limited:
 1. open Diagnostics → Sources;
 2. identify which provider failed and its exact error;
 3. check whether a later provider succeeded;
-4. open Diagnostics → Measurements and check source, age and stale flag;
+4. open Diagnostics → Measurements and expand the relevant group to check source, age and stale flag;
 5. press the title-bar Refresh icon once after an app update;
 6. if all sources continue failing, report app version, country, provider ID, exact error and approximate refresh time.
 
