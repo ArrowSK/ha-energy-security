@@ -21,9 +21,81 @@ func clamp(v, lo, hi float64) float64 {
 	return v
 }
 
+func attrSeconds(o model.Observation, key string) time.Duration {
+	if o.Attributes == nil {
+		return 0
+	}
+	v, ok := o.Attributes[key]
+	if !ok {
+		return 0
+	}
+	var seconds float64
+	switch x := v.(type) {
+	case float64:
+		seconds = x
+	case float32:
+		seconds = float64(x)
+	case int:
+		seconds = float64(x)
+	case int64:
+		seconds = float64(x)
+	case int32:
+		seconds = float64(x)
+	case uint:
+		seconds = float64(x)
+	case uint64:
+		seconds = float64(x)
+	case uint32:
+		seconds = float64(x)
+	default:
+		return 0
+	}
+	if seconds <= 0 || math.IsNaN(seconds) || math.IsInf(seconds, 0) {
+		return 0
+	}
+	return time.Duration(seconds * float64(time.Second))
+}
+
+func observationUsable(o model.Observation) bool {
+	if o.Stale || o.ObservedAt.IsZero() {
+		return false
+	}
+	if o.TTLSeconds > 0 && time.Now().UTC().After(o.ObservedAt.Add(time.Duration(o.TTLSeconds)*time.Second)) {
+		return false
+	}
+	return true
+}
+
+func freshnessFactor(o model.Observation) float64 {
+	if !observationUsable(o) {
+		return 0
+	}
+	freshFor := attrSeconds(o, "fresh_for_seconds")
+	if freshFor <= 0 {
+		return 1
+	}
+	hard := time.Duration(o.TTLSeconds) * time.Second
+	if hard <= freshFor {
+		return 1
+	}
+	age := time.Since(o.ObservedAt)
+	if age <= freshFor {
+		return 1
+	}
+	if age >= hard {
+		return 0
+	}
+	progress := float64(age-freshFor) / float64(hard-freshFor)
+	// A delayed-but-still-usable observation fades from full source quality to
+	// half quality at the hard expiry boundary. It then becomes unusable. This
+	// avoids arbitrary score disappearance at normal publication lag while still
+	// making older evidence visibly less authoritative through confidence.
+	return clamp(1-0.5*progress, 0.5, 1)
+}
+
 func val(obs map[string]model.Observation, k string) (float64, bool) {
 	o, ok := obs[k]
-	if !ok || o.Value == nil || o.Stale {
+	if !ok || o.Value == nil || !observationUsable(o) {
 		return 0, false
 	}
 	return *o.Value, true
@@ -33,8 +105,8 @@ func quality(obs map[string]model.Observation, keys ...string) float64 {
 	var s float64
 	var n int
 	for _, k := range keys {
-		if o, ok := obs[k]; ok && !o.Stale {
-			s += o.Quality
+		if o, ok := obs[k]; ok && observationUsable(o) {
+			s += o.Quality * freshnessFactor(o)
 			n++
 		}
 	}
@@ -102,17 +174,13 @@ func electricity(obs map[string]model.Observation, countryCode string) (model.Do
 				load = average
 				lok = true
 				estimatedLoad = true
-				// A historical annual average is useful when live load is absent,
-				// but it cannot represent the current hour, season or demand peak.
-				// Keep the numerical score available while sharply discounting
-				// confidence and composite weight.
 				q = quality(obs, "electricity_generation_mw") * 100 * 0.45
 			}
 		}
 	}
 
 	var cur *float64
-	summary := "No fresh electricity generation measurement is available."
+	summary := "No usable electricity generation measurement is available."
 	if gok {
 		summary = "Generation data available; live load is unavailable and no embedded country reference is available."
 	}
@@ -140,6 +208,9 @@ func electricity(obs map[string]model.Observation, countryCode string) (model.Do
 			}
 		} else if !strings.HasSuffix(summary, ".") {
 			summary += "."
+		}
+		if o, ok := obs["electricity_generation_mw"]; ok && freshnessFactor(o) < 0.999 && observationUsable(o) {
+			summary += " The newest source sample is beyond the preferred freshness window, so confidence is reduced rather than dropping the electricity score entirely."
 		}
 	}
 
@@ -207,7 +278,7 @@ func gas(obs map[string]model.Observation, month time.Month) model.DomainScore {
 		var ok bool
 		fill, ok = val(obs, "gas_stock_index_pct")
 		if !ok {
-			return model.DomainScore{Status: "Unknown", Confidence: 0, Summary: "No current gas-storage measurement or defensible stock proxy."}
+			return model.DomainScore{Status: "Unknown", Confidence: 0, Summary: "No usable gas-storage measurement or defensible stock proxy."}
 		}
 		q = quality(obs, "gas_stock_index_pct") * 100
 		proxy = true
@@ -229,6 +300,9 @@ func gas(obs map[string]model.Observation, month time.Month) model.DomainScore {
 		s = clamp(s, 0, 35)
 	}
 	summary := fmt.Sprintf("Storage %.1f%%; seasonal reference %.0f%%.", fill, target)
+	if o, ok := obs["gas_storage_fill_pct"]; ok && freshnessFactor(o) < 0.999 && observationUsable(o) {
+		summary += " The latest storage report is older than its preferred freshness window, so confidence is reduced while the slower-moving storage level remains usable."
+	}
 	return model.DomainScore{Score: &s, Status: status(&s, q), Confidence: q, Summary: summary}
 }
 

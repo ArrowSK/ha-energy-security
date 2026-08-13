@@ -120,6 +120,24 @@ func (p AGSI) Collect(ctx context.Context, in Input) ([]model.Observation, error
 	if len(out) == 0 {
 		return nil, fmt.Errorf("AGSI response lacked recognised fields")
 	}
+
+	// AGSI is a daily-reporting source. Storage level/capacity evidence changes
+	// slowly enough to remain useful for several days if publication is delayed,
+	// while flow/trend fields lose operational meaning sooner. Keep these two
+	// classes distinct instead of expiring every gas observation after 36 hours.
+	for i := range out {
+		if out[i].Attributes == nil {
+			out[i].Attributes = map[string]any{}
+		}
+		switch out[i].Key {
+		case "gas_storage_fill_pct", "gas_in_storage_twh", "gas_working_capacity_twh", "gas_storage_consumption_cover_pct":
+			out[i].TTLSeconds = int64((7 * 24 * time.Hour).Seconds())
+			out[i].Attributes["fresh_for_seconds"] = int64((48 * time.Hour).Seconds())
+		default:
+			out[i].TTLSeconds = int64((4 * 24 * time.Hour).Seconds())
+			out[i].Attributes["fresh_for_seconds"] = int64((36 * time.Hour).Seconds())
+		}
+	}
 	return out, nil
 }
 

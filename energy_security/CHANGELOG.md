@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.3 — 2026-08-13
+
+### Fixed
+
+- Energy-Charts observations no longer become unusable immediately after the old 90-minute threshold. The preferred freshness window remains 90 minutes, but observations have a six-hour hard expiry and confidence decays progressively after 90 minutes.
+- GIE AGSI storage observations no longer disappear from scoring merely because the source is two days behind. Storage fill, stored volume, working capacity and storage-versus-consumption use a 48-hour preferred window and seven-day hard expiry.
+- AGSI flow/trend observations remain intentionally shorter-lived: 36-hour preferred freshness and four-day hard expiry.
+- Scoring now applies age-based quality decay when an observation is delayed but still inside its hard validity window.
+- Electricity and gas summaries disclose when confidence has been reduced because a still-usable observation is beyond its preferred freshness window.
+
+### Safety/interpretation
+
+- Hard expiry remains strict. Electricity older than six hours and AGSI storage-level evidence older than seven days are excluded even if the provider request itself succeeds.
+- Provider request health and observation freshness remain separate concepts; a healthy provider can legally return a delayed reporting period.
+
+### Tests
+
+- Added regression coverage for two-hour Energy-Charts data, two-day AGSI storage data, AGSI per-metric TTL assignment and hard expiry.
+
 ## 0.1.2 — 2026-08-13
 
 ### Added

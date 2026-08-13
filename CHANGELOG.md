@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.3 — 2026-08-13
+
+Freshness-policy correction.
+
+- Replaced the abrupt electricity freshness cliff with a preferred 90-minute window plus a six-hour hard expiry for Energy-Charts observations. Delayed-but-usable data now keep the electricity score and reduce confidence progressively instead of disappearing.
+- Corrected GIE AGSI freshness handling to match its daily reporting semantics: storage-level/capacity evidence remains usable for up to seven days, while daily flow/trend observations have a four-day hard limit.
+- Added age-based confidence decay between the preferred freshness window and hard expiry.
+- Kept true hard expiry behaviour: observations beyond their allowed window still stop contributing rather than being treated as current.
+- Added regression tests covering two-hour electricity data, two-day AGSI storage data, and final hard expiry.
+
 ## 0.1.2 — 2026-08-13
 
 Dashboard usability and electricity-reference release.

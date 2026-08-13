@@ -16,7 +16,7 @@ type Client struct {
 }
 
 func New() *Client {
-	return &Client{HTTP: &http.Client{Timeout: 15 * time.Second}, UserAgent: "ha-energy-security/0.1.2"}
+	return &Client{HTTP: &http.Client{Timeout: 15 * time.Second}, UserAgent: "ha-energy-security/0.1.3"}
 }
 
 func (c *Client) Get(ctx context.Context, url string, headers map[string]string, maxBytes int64) ([]byte, int, error) {
@@ -33,9 +33,6 @@ func (c *Client) Get(ctx context.Context, url string, headers map[string]string,
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		// net/http commonly wraps transport failures in url.Error, whose
-		// Error method includes the complete request URL. Provider URLs may
-		// contain credentials, so never pass that wrapper into diagnostics.
 		var ue *neturl.Error
 		if errors.As(err, &ue) && ue.Err != nil {
 			return nil, 0, fmt.Errorf("request failed: %v", ue.Err)

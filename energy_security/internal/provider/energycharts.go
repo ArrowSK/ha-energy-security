@@ -191,5 +191,19 @@ func (p EnergyCharts) Collect(ctx context.Context, in Input) ([]model.Observatio
 	if len(out) == 0 {
 		return nil, fmt.Errorf("Energy-Charts response had no recognised measurements")
 	}
+
+	// Energy-Charts can legitimately publish the newest usable public-power
+	// sample with some delay. Treat 90 minutes as the preferred freshness
+	// window, but keep the sample usable for up to six hours. The scoring
+	// engine continuously discounts confidence after the preferred window
+	// instead of dropping the whole electricity domain at a hard 90-minute
+	// cliff.
+	for i := range out {
+		out[i].TTLSeconds = int64((6 * time.Hour).Seconds())
+		if out[i].Attributes == nil {
+			out[i].Attributes = map[string]any{}
+		}
+		out[i].Attributes["fresh_for_seconds"] = int64((90 * time.Minute).Seconds())
+	}
 	return out, nil
 }

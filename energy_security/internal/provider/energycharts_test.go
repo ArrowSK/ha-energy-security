@@ -50,6 +50,16 @@ func TestEnergyChartsUsesLookbackWindow(t *testing.T) {
 	for _, o := range out {
 		seenGeneration = seenGeneration || o.Key == "electricity_generation_mw"
 		seenLoad = seenLoad || o.Key == "electricity_load_mw"
+		if o.TTLSeconds != int64((6 * time.Hour).Seconds()) {
+			t.Fatalf("Energy-Charts observation should have six-hour hard expiry, got %d", o.TTLSeconds)
+		}
+		if o.Attributes == nil {
+			t.Fatalf("Energy-Charts observation missing freshness attributes: %+v", o)
+		}
+		fresh, ok := o.Attributes["fresh_for_seconds"].(int64)
+		if !ok || fresh != int64((90*time.Minute).Seconds()) {
+			t.Fatalf("unexpected preferred freshness metadata: %#v", o.Attributes["fresh_for_seconds"])
+		}
 	}
 	if !seenGeneration || !seenLoad {
 		t.Fatalf("expected generation and load observations, got %+v", out)

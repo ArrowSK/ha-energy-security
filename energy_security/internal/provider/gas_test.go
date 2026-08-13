@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/ArrowSK/ha-energy-security/energy_security/internal/config"
 	"github.com/ArrowSK/ha-energy-security/energy_security/internal/country"
 	"github.com/ArrowSK/ha-energy-security/energy_security/internal/httpx"
 )
@@ -44,5 +46,41 @@ func TestEurostatGasStocksBuildsLowFrequencyProxy(t *testing.T) {
 	}
 	if out[1].Key != "gas_stock_index_pct" || out[1].Value == nil || *out[1].Value < 91.6 || *out[1].Value > 91.7 {
 		t.Fatalf("unexpected proxy observation: %+v", out[1])
+	}
+}
+
+func TestAGSIAssignsMetricAppropriateFreshnessWindows(t *testing.T) {
+	fixture := `{"data":[{"gasDayStart":"2026-08-11","full":"63.7","gasInStorage":"43.1","workingGasVolume":"67.7","injection":"178.8","withdrawal":"0","consumptionFull":"45.7","trend":"0.3"}]}`
+	client := &httpx.Client{HTTP: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Header.Get("x-key") != "test-key" {
+			t.Fatalf("AGSI key not sent")
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(fixture)), Header: make(http.Header)}, nil
+	})}}
+	out, err := (AGSI{C: client}).Collect(context.Background(), Input{
+		Profile: country.Profile{Code: "HU"},
+		Config:  config.Config{AGSIKey: "test-key"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 7 {
+		t.Fatalf("expected seven AGSI observations, got %+v", out)
+	}
+	for _, o := range out {
+		fresh, ok := o.Attributes["fresh_for_seconds"].(int64)
+		if !ok {
+			t.Fatalf("missing freshness metadata on %s: %+v", o.Key, o.Attributes)
+		}
+		switch o.Key {
+		case "gas_storage_fill_pct", "gas_in_storage_twh", "gas_working_capacity_twh", "gas_storage_consumption_cover_pct":
+			if o.TTLSeconds != int64((7*24*time.Hour).Seconds()) || fresh != int64((48*time.Hour).Seconds()) {
+				t.Fatalf("unexpected storage freshness policy for %s: ttl=%d fresh=%d", o.Key, o.TTLSeconds, fresh)
+			}
+		default:
+			if o.TTLSeconds != int64((4*24*time.Hour).Seconds()) || fresh != int64((36*time.Hour).Seconds()) {
+				t.Fatalf("unexpected flow freshness policy for %s: ttl=%d fresh=%d", o.Key, o.TTLSeconds, fresh)
+			}
+		}
 	}
 }
