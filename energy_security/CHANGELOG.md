@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.2.0 — 2026-08-14
+
+### Added
+
+- Standalone runtime mode for Docker and Railway. It uses the exact same `cmd/energy-security` binary, provider manager, scoring engine, cache, country profiles and embedded dashboard as the Home Assistant app.
+- Environment-based standalone configuration for country, refresh cadence, optional weather location metadata and optional AGSI/ENTSO-E credentials.
+- Normal HTTP serving in standalone mode, with the Home Assistant-specific ingress IP guard applied only to the Home Assistant runtime.
+- Repository-root Dockerfile, Docker Compose definition, Railway config-as-code and standalone deployment documentation.
+- CI coverage that builds the standalone image, verifies its compiled version against the Home Assistant manifest, validates Compose/Railway configuration and smoke-tests `/healthz` over normal HTTP.
+
+### Shared-core/version contract
+
+- `energy_security/config.yaml` remains the release-version source of truth.
+- The standalone Dockerfile reads that Home Assistant manifest at build time and injects its version into the same Go binary. There is no independent standalone version constant to drift.
+- Provider, scoring, freshness, fallback, dashboard and cache fixes continue to be made once under `energy_security/` and therefore apply to both deployment modes.
+
+### Home Assistant compatibility
+
+- Home Assistant defaults remain unchanged: `country: auto`, `/data/options.json`, Ingress, Supervisor-backed dashboard Setup and optional HA state publication.
+- The existing Home Assistant `energy_security/Dockerfile`, App Store layout and Supervisor option schema remain in place.
+- Standalone mode always disables Home Assistant entity publication and never requires a Supervisor token.
+
+### Standalone behavior
+
+- `ENERGY_SECURITY_COUNTRY` is mandatory and `auto` is rejected because standalone deployments have no Home Assistant HOME country to resolve.
+- Optional latitude/longitude allow the same Open-Meteo weather logic to run outside Home Assistant. The coordinate pair is validated and must be supplied together.
+- Dashboard configuration reads are supported without exposing credential values; writes are rejected because Docker/Railway environment variables are the standalone source of truth.
+- `/data` remains the cache/history path and can be mounted as a Docker/Railway volume for persistence.
+
 ## 0.1.5 — 2026-08-13
 
 ### Dashboard
