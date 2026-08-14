@@ -48,3 +48,51 @@ jobs:
 
       - name: Check embedded country JSON
         run: python3 -m json.tool internal/country/data/countries.json >/dev/null
+
+  standalone:
+    name: Standalone deployment checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Validate Railway config
+        run: |
+          python3 - <<'PY'
+          import tomllib
+          with open('railway.toml', 'rb') as f:
+              cfg = tomllib.load(f)
+          assert cfg['build']['builder'] == 'DOCKERFILE'
+          assert cfg['build']['dockerfilePath'] == 'Dockerfile'
+          assert cfg['deploy']['healthcheckPath'] == '/healthz'
+          assert cfg['deploy']['restartPolicyType'] == 'ON_FAILURE'
+          PY
+
+      - name: Validate Compose config
+        run: ENERGY_SECURITY_COUNTRY=HU docker compose -f compose.yaml config >/dev/null
+
+      - name: Build standalone image
+        run: docker build -t energy-security-standalone:ci .
+
+      - name: Verify standalone version follows HA manifest
+        run: |
+          expected="$(sed -n 's/^version: "\([^"]*\)"/\1/p' energy_security/config.yaml)"
+          actual="$(docker run --rm energy-security-standalone:ci --version)"
+          test -n "$expected"
+          test "$actual" = "$expected"
+
+      - name: Smoke-test standalone HTTP service
+        run: |
+          docker run -d --name energy-security-standalone \
+            -e ENERGY_SECURITY_COUNTRY=HU \
+            -e ENERGY_SECURITY_ENABLE_WEATHER=false \
+            -p 18099:8080 \
+            energy-security-standalone:ci
+          trap 'docker logs energy-security-standalone || true; docker rm -f energy-security-standalone || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18099/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
