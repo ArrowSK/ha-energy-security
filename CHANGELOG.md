@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0 — 2026-08-14
+
+Shared-core standalone deployment release.
+
+- Added a repository-root standalone Docker image and `compose.yaml` while preserving the existing Home Assistant app container and Ingress runtime.
+- Added Railway config-as-code with root Dockerfile build, `/healthz` deployment checking and on-failure restart policy.
+- Added standalone environment configuration for explicit country, refresh cadence, optional weather coordinates/location metadata and optional AGSI/ENTSO-E credentials. Home Assistant entity publication is always disabled outside Home Assistant.
+- Kept one implementation of providers, scoring, cache, history and dashboard: both deployment modes execute the same `energy_security/cmd/energy-security` binary and `energy_security/internal/` core.
+- Bound standalone image versioning to the Home Assistant app manifest. The root Dockerfile reads `energy_security/config.yaml` at build time, and CI requires the standalone binary version to match it exactly.
+- Preserved Home Assistant behaviour: `country: auto`, `/data/options.json`, Supervisor-backed dashboard Setup, Ingress-only request guarding and optional HA state publication remain the Home Assistant path.
+- Added standalone normal-HTTP serving without the Home Assistant Ingress IP guard. Dashboard configuration mutation is read-only in standalone mode because Docker/Railway environment variables are the source of truth.
+- Added standalone Docker build, manifest-version, Compose, Railway-config and HTTP smoke tests to CI.
+- Added a dedicated Docker/Railway deployment guide and secret-safe `.env.example`/`.gitignore` handling.
+
 ## 0.1.5 — 2026-08-13
 
 Dashboard hierarchy refinement.
