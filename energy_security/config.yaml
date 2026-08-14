@@ -1,6 +1,6 @@
 name: Energy Security Monitor
 description: National energy-security assessment with local scoring, source fallbacks, and diagnostics
-version: "0.1.5"
+version: "0.2.0"
 slug: energy_security
 url: https://github.com/ArrowSK/ha-energy-security
 arch:
