@@ -31,6 +31,9 @@ type Server struct {
 	mux        *http.ServeMux
 	refreshing atomic.Bool
 	started    time.Time
+	mode       string
+	cfg        config.Config
+	configPath string
 }
 
 type setupRequest struct {
@@ -51,7 +54,15 @@ type setupCountry struct {
 }
 
 func New(a *app.App) *Server {
-	s := &Server{app: a, mux: http.NewServeMux(), started: time.Now().UTC()}
+	return newServer(a, "home_assistant", config.Config{}, "/data/options.json")
+}
+
+func NewStandalone(a *app.App, cfg config.Config) *Server {
+	return newServer(a, "standalone", cfg, "")
+}
+
+func newServer(a *app.App, mode string, cfg config.Config, configPath string) *Server {
+	s := &Server{app: a, mux: http.NewServeMux(), started: time.Now().UTC(), mode: mode, cfg: cfg, configPath: configPath}
 	assets, err := fs.Sub(webFiles, "web")
 	if err != nil {
 		panic(err)
@@ -66,7 +77,11 @@ func New(a *app.App) *Server {
 }
 
 func (s *Server) Handler() http.Handler {
-	return securityHeaders(s.ingressGuard(s.mux))
+	var h http.Handler = s.mux
+	if s.mode != "standalone" {
+		h = s.ingressGuard(h)
+	}
+	return securityHeaders(h)
 }
 
 func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
@@ -104,14 +119,21 @@ func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 		"uptime_sec":   int64(time.Since(s.started).Seconds()),
 		"refreshing":   s.refreshing.Load(),
 		"has_snapshot": !snap.UpdatedAt.IsZero(),
+		"mode":         s.mode,
 	})
 }
 
 func (s *Server) getConfig(w http.ResponseWriter, _ *http.Request) {
-	cfg, err := config.Load("/data/options.json")
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "unable to read app configuration"})
-		return
+	cfg := s.cfg
+	editable := false
+	if s.mode != "standalone" {
+		var err error
+		cfg, err = config.Load(s.configPath)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "unable to read app configuration"})
+			return
+		}
+		editable = true
 	}
 	profiles := country.All()
 	sort.Slice(profiles, func(i, j int) bool { return profiles[i].Name < profiles[j].Name })
@@ -127,6 +149,8 @@ func (s *Server) getConfig(w http.ResponseWriter, _ *http.Request) {
 		"agsi_key_configured":     strings.TrimSpace(cfg.AGSIKey) != "",
 		"entsoe_token_configured": strings.TrimSpace(cfg.ENTSOEToken) != "",
 		"countries":               countries,
+		"deployment_mode":         s.mode,
+		"editable":                editable,
 	})
 }
 
@@ -163,6 +187,10 @@ func normalizeSetup(req setupRequest, current config.Config) (config.Config, err
 }
 
 func (s *Server) setConfig(w http.ResponseWriter, r *http.Request) {
+	if s.mode == "standalone" {
+		writeJSON(w, http.StatusConflict, map[string]any{"error": "standalone configuration is controlled by environment variables; change them in Docker or Railway and redeploy"})
+		return
+	}
 	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "application/json") {
 		writeJSON(w, http.StatusUnsupportedMediaType, map[string]any{"error": "configuration must be sent as JSON"})
 		return
@@ -174,7 +202,7 @@ func (s *Server) setConfig(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid configuration payload"})
 		return
 	}
-	current, err := config.Load("/data/options.json")
+	current, err := config.Load(s.configPath)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "unable to read current configuration"})
 		return
