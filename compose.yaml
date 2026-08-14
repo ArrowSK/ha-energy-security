@@ -1,0 +1,26 @@
+services:
+  energy-security:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${ENERGY_SECURITY_PORT:-8099}:8080"
+    environment:
+      PORT: "8080"
+      ENERGY_SECURITY_MODE: standalone
+      ENERGY_SECURITY_DATA_DIR: /data
+      ENERGY_SECURITY_COUNTRY: "${ENERGY_SECURITY_COUNTRY:?Set ENERGY_SECURITY_COUNTRY to a two-letter ISO code}"
+      ENERGY_SECURITY_REFRESH_MINUTES: "${ENERGY_SECURITY_REFRESH_MINUTES:-30}"
+      ENERGY_SECURITY_ENABLE_WEATHER: "${ENERGY_SECURITY_ENABLE_WEATHER:-true}"
+      ENERGY_SECURITY_LATITUDE: "${ENERGY_SECURITY_LATITUDE:-}"
+      ENERGY_SECURITY_LONGITUDE: "${ENERGY_SECURITY_LONGITUDE:-}"
+      ENERGY_SECURITY_TIMEZONE: "${ENERGY_SECURITY_TIMEZONE:-}"
+      ENERGY_SECURITY_LOCATION_NAME: "${ENERGY_SECURITY_LOCATION_NAME:-}"
+      ENERGY_SECURITY_AGSI_KEY: "${ENERGY_SECURITY_AGSI_KEY:-}"
+      ENERGY_SECURITY_ENTSOE_TOKEN: "${ENERGY_SECURITY_ENTSOE_TOKEN:-}"
+    volumes:
+      - energy-security-data:/data
+
+volumes:
+  energy-security-data:
