@@ -91,6 +91,15 @@ func markStale(s *model.Snapshot, now time.Time) {
 }
 
 func (a *App) resolve(ctx context.Context) (country.Profile, float64, float64, string, string, bool, error) {
+	if strings.EqualFold(a.cfg.RuntimeMode, "standalone") {
+		p := country.Resolve(a.cfg.Country)
+		hasLoc := a.cfg.Latitude != nil && a.cfg.Longitude != nil
+		if hasLoc {
+			return p, *a.cfg.Latitude, *a.cfg.Longitude, a.cfg.TimeZone, a.cfg.LocationName, true, nil
+		}
+		return p, 0, 0, a.cfg.TimeZone, a.cfg.LocationName, false, nil
+	}
+
 	hcfg, err := a.ha.Config(ctx)
 	if err != nil {
 		if strings.EqualFold(a.cfg.Country, "auto") {
