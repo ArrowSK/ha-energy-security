@@ -1,10 +1,22 @@
 # Energy Security Monitor
 
-Energy Security Monitor is a self-contained Home Assistant app that assesses national energy-security conditions from public electricity, fuel, hydrology and weather data. The same Go core can also run as a standalone Docker/Railway service, without changing the Home Assistant package behaviour.
+Energy Security Monitor can be installed in **Home Assistant**, run with **Docker / Docker Compose**, or deployed on **Railway**. All installation options use the same Go core, providers, scoring rules, fallback logic and dashboard.
 
-Normal Home Assistant use is intentionally simple: install the app, start it, and open **Energy Security** from the Home Assistant sidebar. With the default `country: auto`, the app uses the country configured for Home Assistant HOME. No project account, MQTT broker or mandatory API key is required.
+This directory contains the **Home Assistant package**. It is the most integrated option if you already use Home Assistant, but it is not a separate edition of the project and it is not the only way to run Energy Security Monitor.
 
-The app keeps provider selection, fallback logic, country profiles, scoring, the versioned electricity reference library and dashboard assets locally. It does not download runtime configuration or parser code from this repository and does not send telemetry to the project.
+## Why use the Home Assistant package?
+
+- opens directly from the Home Assistant sidebar through Ingress;
+- can use the HOME country and coordinates automatically with `country: auto`;
+- can publish selected energy-security states as Home Assistant sensors;
+- lets you change normal options from the dashboard Setup screen;
+- requires no project account, MQTT broker or mandatory API key for normal use.
+
+The same core can also run completely standalone on a NAS, server, VPS or hosted Railway service. A provider, scoring, freshness or dashboard fix made in the shared core therefore applies to every deployment mode rather than being reimplemented separately.
+
+## What the monitor does
+
+Energy Security Monitor turns public electricity, fuel, hydrology and weather data into a cautious national energy-security assessment. It keeps the underlying measurements visible, shows a separate confidence value, and treats missing or delayed data as uncertainty rather than silently converting them into zero.
 
 Version 0.2.0 includes:
 
@@ -18,12 +30,16 @@ Version 0.2.0 includes:
 - deterministic Current, 7-day Outlook and Strategic Resilience scores with a separate confidence value;
 - local provider health, fallback, circuit-breaker and last-known-good caching;
 - native Docker health checking;
-- Home Assistant Ingress dashboard with sticky section navigation, dashboard Setup, five top-level scored security domains, collapsed supporting indicators, separated Sources/Measurements diagnostics and optional HA state sensors;
-- a standalone runtime mode for Docker/Railway that uses environment configuration, normal HTTP serving and no Home Assistant Supervisor/entity dependency;
-- a repository-root Dockerfile whose compiled version is read directly from this Home Assistant app's `config.yaml`, plus CI that verifies both deployment modes stay version-bound to the same core release.
+- a mobile-friendly dashboard with five top-level scored security domains, collapsed supporting indicators, separated Sources/Measurements diagnostics and optional HA state sensors;
+- standalone Docker/Railway runtime using environment configuration and normal HTTP serving;
+- a repository-root Dockerfile whose compiled version is read directly from this Home Assistant app's `config.yaml`, with CI verifying that every deployment stays version-bound to the same core release.
 
-The dashboard deliberately distinguishes scored domains from supporting observations. Electricity generation sources such as nuclear, solar, wind, hydro and thermal generation are shown inside an expandable Electricity detail section rather than as independent security scores. Generation components show MW plus their percentage of current load when live load exists; when it does not, the UI explicitly falls back to percentage of current generation. The older standalone Generation mix card is no longer shown, avoiding duplicate presentation of the same evidence.
+The dashboard deliberately distinguishes scored domains from supporting observations. Electricity generation sources such as nuclear, solar, wind, hydro and thermal generation appear inside an expandable Electricity detail section rather than as independent security scores. Generation components show MW plus their percentage of current load when live load exists; when it does not, the UI explicitly falls back to percentage of current generation.
 
-Home Assistant remains the primary package: its Ingress guard, Supervisor-backed Setup flow, `/data/options.json` configuration and optional HA entity publication are preserved. Standalone mode is a thin wrapper around the same binary and core rather than a fork.
+Home Assistant-specific behaviour remains isolated to the thin package layer: Ingress, Supervisor-backed Setup, `/data/options.json` configuration and optional HA entity publication. Standalone mode does not emulate those pieces; it simply runs the same binary and shared core with environment-based configuration.
 
-See [DOCS.md](DOCS.md) for Home Assistant installation, configuration, interpretation, diagnostics and troubleshooting. See [Standalone Docker and Railway](../docs/STANDALONE.md) for the alternative deployment path. The repository-level [README](../README.md) contains architecture, source and development documentation.
+For Home Assistant installation, configuration, interpretation, diagnostics and troubleshooting, continue with [DOCS.md](DOCS.md).
+
+If you would rather run the project without Home Assistant, use the [Standalone Docker and Railway guide](../docs/STANDALONE.md).
+
+For the project overview, scoring model, data sources and architecture, see the repository-level [README](../README.md).
