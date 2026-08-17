@@ -1,232 +1,172 @@
-# Energy Security Monitor
+<p align="center">
+  <img src="energy_security/logo.png" width="120" alt="Energy Security Monitor logo">
+</p>
 
-A practical dashboard for understanding a country's energy position — without pretending that missing or delayed data are certainty.
+<h1 align="center">Energy Security Monitor</h1>
 
-**Run it the way that fits your setup:**
+<p align="center">
+  <strong>A practical, transparent view of national energy security — without turning missing or delayed data into false certainty.</strong>
+</p>
 
-| Installation | Best fit | What you get |
-|---|---|---|
-| **Home Assistant app** | You already run Home Assistant | Ingress dashboard, dashboard Setup, optional HA sensors, automatic HOME location support |
-| **Docker / Docker Compose** | NAS, home server, VPS, Raspberry Pi, homelab | The same dashboard and scoring engine as a normal standalone web service |
-| **Railway** | You want a hosted deployment without managing a server | The same standalone service, built directly from this repository |
+<p align="center">
+  <a href="https://github.com/ArrowSK/ha-energy-security/actions/workflows/ci.yaml"><img src="https://github.com/ArrowSK/ha-energy-security/actions/workflows/ci.yaml/badge.svg?branch=main" alt="CI status"></a>
+  <a href="https://github.com/ArrowSK/ha-energy-security/actions/workflows/lint.yaml"><img src="https://github.com/ArrowSK/ha-energy-security/actions/workflows/lint.yaml/badge.svg?branch=main" alt="Home Assistant app lint"></a>
+  <img src="https://img.shields.io/badge/Home%20Assistant-App-41BDF5?logo=home-assistant&logoColor=white" alt="Home Assistant app">
+  <img src="https://img.shields.io/badge/Docker-Standalone-2496ED?logo=docker&logoColor=white" alt="Docker standalone">
+  <img src="https://img.shields.io/badge/License-PolyForm%20Noncommercial-6f42c1" alt="PolyForm Noncommercial license">
+</p>
 
-All three use the **same Go core, providers, scoring rules, fallback logic and dashboard**. There is no separate "Docker edition" to drift away from Home Assistant. A fix to the shared core is a fix for every deployment mode.
+<p align="center">
+  <a href="https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FArrowSK%2Fha-energy-security"><img src="https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg" alt="Add Energy Security Monitor repository to Home Assistant" height="40"></a>
+  &nbsp;
+  <a href="https://railway.com/new"><img src="https://railway.com/button.svg" alt="Deploy on Railway" height="40"></a>
+  &nbsp;
+  <a href="#docker--docker-compose"><img src="https://img.shields.io/badge/Run%20with-Docker%20Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Run with Docker Compose" height="40"></a>
+</p>
 
-## Highlights
+<p align="center">
+  <sub>Home Assistant · Docker / Docker Compose · Railway — all running the same core, scoring engine, providers and dashboard.</sub>
+</p>
 
-- **One view of several energy-security dimensions** — electricity, gas, oil reserves, hydrology and weather stress.
-- **Transparent rather than dramatic** — every score has a separate confidence value, and missing data reduce confidence instead of being turned into a fake emergency.
-- **Built around public data and fallbacks** — provider failures, delayed publication and lower-quality fallback data are visible in Diagnostics.
-- **No project account or telemetry service** — no licence server, analytics SDK, MQTT requirement, paid API requirement or project-operated cloud backend.
-- **Useful on a phone** — the dashboard is designed for both mobile and desktop, with collapsible supporting evidence instead of endless raw tables.
-- **One codebase for every installation option** — Home Assistant, Docker and Railway stay version-bound to the same release.
+---
 
-Energy Security Monitor is meant to answer a fairly simple question: **how exposed or resilient does the current energy position look, and how much confidence should you place in that answer?** It gathers public energy-system data, applies deterministic scoring, keeps the underlying measurements inspectable, and clearly marks when a conclusion is based on delayed, incomplete or lower-fidelity evidence.
+## What it gives you
 
-No account is required for normal use. Most deployments also need no API keys at all. Optional GIE AGSI and ENTSO-E credentials can improve coverage where supported, but they are enhancements rather than prerequisites.
+Energy Security Monitor is built for the question people actually care about: **how exposed or resilient does the current energy position look, and how much confidence should you place in that answer?**
+
+| | |
+|---|---|
+| **Five scored security domains** | Electricity, gas, oil reserves, hydrology and weather stress |
+| **Three time horizons** | Current conditions, 7-day outlook and strategic resilience |
+| **Confidence kept separate from score** | Missing or delayed data lower confidence instead of manufacturing a crisis |
+| **Visible evidence** | Supporting indicators stay inspectable instead of disappearing behind one headline |
+| **Source-aware fallbacks** | Provider failures, delayed publication and lower-fidelity fallbacks are shown in Diagnostics |
+| **Mobile-friendly dashboard** | Compact navigation, collapsible supporting data and diagnostics designed for a phone as well as desktop |
+
+No project account is required. There is no project telemetry service, licence server, analytics SDK, MQTT requirement, paid API requirement or project-operated cloud backend. Optional GIE AGSI and ENTSO-E credentials can improve coverage where supported, but normal use does not depend on them.
 
 > **Current release: 0.2.0.** Hungary is the full reference profile. Broader European coverage is intentionally graded rather than pretending that every country publishes the same quality of electricity, gas, oil and hydrological data.
 
-## Choose an installation
+## Choose how to run it
 
 ### Home Assistant
 
-If you already use Home Assistant, this is the most integrated option. Add this repository to the Home Assistant App Store, install **Energy Security Monitor**, start it, and open **Energy Security** from the sidebar.
+The most integrated option if you already run Home Assistant.
 
-The default `country: auto` uses the country and coordinates configured for Home Assistant HOME. The app opens through Ingress, can publish selected HA sensors, and lets you change normal options from **Dashboard → menu → Setup**.
+[![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FArrowSK%2Fha-energy-security)
 
-See the [Home Assistant app guide](energy_security/DOCS.md).
+The button opens your Home Assistant instance with this repository URL pre-filled. Then install **Energy Security Monitor** from the App Store, start it, and open **Energy Security** from the sidebar.
+
+Home Assistant mode adds Ingress, `country: auto`, dashboard Setup and optional HA sensors while keeping the same underlying core used everywhere else.
+
+[Home Assistant app guide →](energy_security/DOCS.md)
 
 ### Docker / Docker Compose
 
-If you do not use Home Assistant, or simply want the monitor on a NAS, server, VPS or homelab, run the standalone container instead.
+Best for a NAS, home server, VPS, Raspberry Pi or homelab when you want the monitor as a normal standalone web service.
 
 ```sh
 cp .env.example .env
-# edit .env, then:
+# set ENERGY_SECURITY_COUNTRY and any optional location values
 docker compose up -d --build
 ```
 
-Standalone mode uses environment variables, serves the same embedded dashboard over normal HTTP, and stores cache/history under `/data` when a persistent volume is used.
+Open `http://localhost:8099` unless you changed the exposed port. A named `/data` volume keeps cache and dashboard history across container replacement.
 
-See the [Standalone Docker and Railway guide](docs/STANDALONE.md).
+[Standalone Docker guide →](docs/STANDALONE.md#docker-compose)
 
 ### Railway
 
-Railway uses the same root Dockerfile as standalone Docker. Create a service from this repository's `main` branch, set at least `ENERGY_SECURITY_COUNTRY` to a two-letter country code, and deploy. The included `railway.toml` configures the Docker build, `/healthz` check and restart policy; Railway's injected `PORT` is used automatically.
+Best if you want a hosted deployment without maintaining your own server.
 
-The Railway deployment is not a separate application. It is the same binary and shared core as the Home Assistant and Docker builds.
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new)
 
-## What it measures
+Railway builds the repository-root Dockerfile and uses the included `railway.toml`. In the new-project flow, select `ArrowSK/ha-energy-security`, set at least `ENERGY_SECURITY_COUNTRY` to a two-letter country code, and deploy. Railway supplies `PORT` automatically.
+
+The Railway button currently opens Railway's standard new-project flow rather than a published marketplace template, so it does not hide the required country choice from you.
+
+[Railway deployment guide →](docs/STANDALONE.md#railway)
+
+## How to read the dashboard
+
+| Current | 7-day outlook | Strategic resilience |
+|---|---|---|
+| Operational conditions now and roughly the next 48 hours | Current conditions plus near-term weather stress | Slower-moving structural signals such as generation diversity, gas stocks/storage, oil evidence and hydrology |
+
+The headline combines those horizons, but **confidence is always shown separately**. A lower-confidence score means the app has less or weaker evidence — not that the energy situation itself is automatically worse.
+
+Only the main domains receive security scores. Supporting observations stay under their parent domain: nuclear, solar, wind and thermal generation under Electricity; storage details under Gas; reserve evidence under Oil; river and weather readings under their own domains. These sections start collapsed and expand when you want the detail.
+
+Diagnostics deliberately separates **Sources** from **Measurements**, so a provider problem is not confused with an energy-security event.
+
+## What it can measure
 
 Depending on country support and source availability, the monitor can use:
 
-- electricity generation and live load when available;
-- a clearly labelled embedded annual-demand reference when fresh generation exists but live load is absent;
-- generation mix, including nuclear, solar, wind, hydro and thermal generation;
-- cross-border electricity trading where exposed by the selected feed;
-- gas storage/system measurements or a clearly labelled lower-frequency national stock proxy;
+- electricity generation and live load;
+- a clearly labelled annual-demand reference when fresh generation exists but live load is absent;
+- nuclear, solar, wind, hydro and thermal generation mix;
+- cross-border electricity trading;
+- gas storage/system measurements or a lower-frequency national stock proxy;
 - emergency oil-stock days-equivalent for EU profiles;
-- hydrological conditions where a country adapter exists; Hungary includes Budapest/Paks Danube evidence and water temperature where published;
+- hydrological conditions where a country adapter exists;
 - seven-day heat, cold, wind and precipitation stress around the configured location;
 - generation diversity as a structural resilience signal;
-- source freshness, provider failures, fallbacks and confidence.
+- source freshness, fallbacks and provider health.
 
-The provider model is intentionally extensible. Reservoir storage, cooling-water constraints, plant outages, interconnector headroom, LNG send-out, pipeline flows, demand forecasts, pumped storage and batteries can be added later without replacing the scoring/dashboard contract.
+The scoring model is deterministic. No LLM, news-sentiment model or remote scoring service sits in the decision path.
 
-## Scores and confidence
+## Data-source strategy
 
-The dashboard exposes three horizons:
+| Domain | Primary / fallback sources | Credentials |
+|---|---|---:|
+| Electricity | Energy-Charts → optional ENTSO-E → embedded annual-demand reference when only live load is missing | None / optional |
+| Gas | FGSZ (HU) → optional GIE AGSI → Eurostat monthly gas stocks | None / optional |
+| Oil | Eurostat emergency-stock dataset | None |
+| Hydrology | HYDROINFO where supported | None |
+| Weather stress | Open-Meteo | None |
 
-- **Current** — operational conditions now and roughly the next 48 hours.
-- **7-day outlook** — current conditions with near-term weather stress.
-- **Strategic resilience** — slower-moving structural signals such as generation diversity, storage/stocks, oil evidence and hydrology.
+Lower-fidelity fallbacks are labelled as such. A monthly gas-stock proxy is not presented as physical real-time storage fill, and an annual-average electricity reference is not presented as live demand.
 
-The headline combines those horizons and is always accompanied by a separate **confidence** value.
+[Data sources →](docs/DATA_SOURCES.md) · [Support matrix →](docs/SUPPORT_MATRIX.md) · [Electricity reference →](docs/ELECTRICITY_REFERENCE.md)
 
-Missing data never becomes zero. Stale data does not contribute indefinitely. If a source fails, the app tries the next configured provider. If no fresh fallback exists, a last-known-good observation is retained only inside its defined freshness window. Missing domains reduce confidence instead of manufacturing a crisis.
+## One core, every installation
 
-When live electricity load is absent but fresh generation is present, the app can use an embedded recent annual-demand reference for the selected country. It converts annual demand into an annual-average MW value, explicitly labels that derivation in the electricity description, sharply reduces confidence and composite weight, and never treats the reference as current or peak demand. Fresh live load always wins.
+Home Assistant, standalone Docker and Railway are deployment wrappers around the same application:
 
-The scoring model is deterministic. No LLM, news sentiment model or remote scoring service is in the decision path.
-
-## One core, several deployment wrappers
-
-The installation options do not maintain separate provider or scoring implementations:
-
-- shared binary entry point: `energy_security/cmd/energy-security`;
-- shared core: `energy_security/internal/`;
-- Home Assistant container wrapper: `energy_security/Dockerfile` plus Supervisor options/Ingress behaviour;
-- standalone Docker/Railway wrapper: repository-root `Dockerfile` plus environment configuration.
-
-`energy_security/config.yaml` is the release-version source of truth. The root standalone Dockerfile reads that Home Assistant manifest during its build and compiles the same version into the standalone binary. CI verifies that the standalone image's `--version` exactly matches the manifest.
-
-That means a provider, scoring, freshness or dashboard fix is made once in the shared core and inherited by every deployment mode.
-
-## Home Assistant behaviour
-
-Normal Home Assistant installation requires no credentials:
-
-```yaml
-country: auto
-refresh_minutes: 30
-enable_ha_entities: true
-enable_weather: true
+```text
+energy_security/cmd/energy-security   shared binary entry point
+energy_security/internal/             providers, scoring, cache, history, dashboard
+energy_security/Dockerfile            Home Assistant wrapper
+Dockerfile                             standalone Docker / Railway wrapper
 ```
 
-Advanced users can optionally provide a GIE AGSI key to improve supported gas-storage coverage and an ENTSO-E Transparency Platform token for configured electricity fallback use.
-
-All normal Home Assistant options can also be changed from **Dashboard → menu → Setup**. Secret values are never returned from the app backend to the browser; blank secret fields preserve existing values unless the explicit clear control is selected.
-
-The Home Assistant app intentionally omits a runtime `image` setting. Supervisor builds the app locally during installation from the repository rather than requiring a separately managed project container registry. Once installed, normal operation does not contact this repository.
-
-The Home Assistant app opens through Ingress and exposes no user-facing external port.
-
-## Standalone behaviour
-
-Standalone mode uses environment variables because there is no Home Assistant Supervisor. It deliberately disables HA entity publication and never tries to contact Supervisor.
-
-A `/data` volume is recommended so cached observations and dashboard history survive container replacement. Setup values are read-only in the dashboard in standalone mode; change the Docker/Railway environment variables and restart or redeploy instead.
-
-Standalone deployments do not add an authentication layer by themselves. If the dashboard should not be public, keep it on a private network or place it behind an authenticated reverse proxy.
-
-See [Standalone Docker and Railway](docs/STANDALONE.md) for the complete variable list and deployment examples.
-
-## Self-healing behaviour
-
-Each domain has an ordered provider chain. Collection and recovery happen locally:
-
-1. query the preferred supported provider;
-2. on failure, try the next provider;
-3. after repeated failures, temporarily open a local circuit for the failing provider;
-4. keep valid last-known-good observations in `/data`;
-5. probe the preferred provider again after cooldown;
-6. automatically return to it when it recovers.
-
-Cache writes use a temporary file and atomic rename. Historical dashboard points are bounded. No project server coordinates this process and the app never downloads parser code while running. Both container variants expose `/healthz`; the Home Assistant image also keeps its native Docker `HEALTHCHECK` independently of provider health.
-
-## Dashboard
-
-The built-in dashboard uses an Android-style sticky bottom navigator for **Overview, Domains, Signals, Trend and Diagnostics**. Manual Refresh is a compact title-bar icon; configuration lives under the title-bar menu where that deployment mode supports editing.
-
-**Domains** has a strict hierarchy. Only **Electricity, Gas, Oil reserves, Hydrology and Weather stress** are shown as top-level scored security domains. Supporting evidence is nested underneath the relevant domain rather than being presented as another score. Nuclear and renewable generation belong under Electricity; storage details belong under Gas; reserve measurements belong under Oil; and river/weather observations stay under their respective domains.
-
-Supporting-indicator sections are collapsed by default and expand on click. A section that the user opens stays open during normal dashboard refreshes. For Electricity, generation components show MW plus a percentage share. When live load exists the denominator is current load; if live load is unavailable the UI explicitly switches to percentage of current generation. Cross-border balance shows percentage of current load when possible. Generation diversity remains a normalized structural score, not a generation share.
-
-Diagnostics separates **Sources** from **Measurements**. Measurement rows are grouped into collapsible domain/provider sections, start collapsed, and use larger typography on mobile. A group manually opened by the user remains open through normal refreshes.
-
-The frontend has no external JavaScript, font, analytics or CDN dependency; its assets are embedded in the Go binary.
-
-With `enable_ha_entities: true`, the Home Assistant app can also publish state-machine sensors including:
-
-- `sensor.energy_security_score`
-- `sensor.energy_security_confidence`
-- `sensor.energy_security_status`
-- `sensor.energy_security_electricity`
-- `sensor.energy_security_gas`
-- `sensor.energy_security_oil`
-- `sensor.energy_security_water`
-- `sensor.energy_security_weather`
-- selected generation/load/nuclear/renewable/storage measurements when available;
-- `sensor.energy_security_gas_national_stock` and `sensor.energy_security_gas_stock_index` when the Eurostat monthly gas fallback is active.
-
-The embedded electricity reference is scoring metadata and does not fabricate a live `electricity_load_mw` state.
-
-## Current source strategy
-
-The source order is: established machine-readable feeds first, optional official APIs second, public national pages where no stable unauthenticated structured feed exists, then explicitly labelled local fallbacks/cache where their semantics remain defensible.
-
-| Domain | Primary / fallback sources | Credentials | Current coverage |
-|---|---|---:|---|
-| Electricity | Energy-Charts → optional ENTSO-E → embedded annual-demand reference when only live load is missing | None / optional | Broad Europe |
-| Gas | FGSZ (HU) → optional GIE AGSI → Eurostat monthly gas stocks | None / optional | HU full chain; EU strategic fallback |
-| Oil | Eurostat emergency-stock dataset | None | EU profiles |
-| Water | HYDROINFO | None | Hungary |
-| Weather stress | Open-Meteo | None | Configured coordinates |
-
-The gas fallback deliberately distinguishes actual storage fill from the keyless Eurostat monthly stock proxy. The electricity fallback similarly distinguishes a derived annual-average load from live demand. Neither lower-fidelity fallback is allowed to masquerade as the primary measurement.
-
-See [Data sources](docs/DATA_SOURCES.md), [Electricity reference](docs/ELECTRICITY_REFERENCE.md) and [Support matrix](docs/SUPPORT_MATRIX.md) for exact limitations.
-
-## Resource budget
-
-The runtime is one Go process plus a small container base. There is no Python interpreter, Node process, browser engine, database server or server-side chart renderer.
-
-For the Home Assistant build, the release gate is **under 50 MB steady-state RSS**. The engineering target is **35 MB or less** during normal operation. Build-time memory is separate. See [Memory budget](docs/MEMORY_BUDGET.md) for the measurement method.
+`energy_security/config.yaml` is the release-version source of truth. The standalone Docker build reads that manifest and compiles the same version into the same binary; CI verifies the versions stay aligned. A provider, scoring, freshness or dashboard fix is therefore made once and inherited by every deployment mode.
 
 ## Privacy and independence
 
-At runtime the application sends requests only to data providers needed for the configured country. Home Assistant mode additionally uses Home Assistant's internal API when state publication is enabled and Home Assistant Supervisor when the user explicitly saves dashboard Setup. Standalone mode does neither.
+The application contacts only the data providers needed for the configured country. Home Assistant mode additionally talks to Home Assistant's internal API when HA sensor publication is enabled and to Supervisor when you explicitly save dashboard Setup. Standalone mode does neither.
 
-It does not send usage data to ArrowSK, GitHub or any project-operated service. There is no telemetry endpoint, analytics SDK, remote configuration backend, project API, licence server, GitHub polling, or automatic code/parser download.
+It does **not** send usage data to ArrowSK, GitHub or any project-operated backend. Runtime provider logic, country profiles, scoring rules, dashboard assets and fallback behaviour ship with the installed release. A running deployment does not need this GitHub repository to remain online.
 
-The project has no account, telemetry service, licence server, remote configuration service, MQTT requirement, paid API requirement, or runtime dependency on this repository. Country profiles, provider logic, scoring rules, dashboard assets, the versioned electricity reference table and fallback behaviour are shipped with the application binary. If this repository becomes unavailable after installation, a running deployment keeps working with its bundled logic and local cache.
+Standalone deployments do not add authentication by themselves. If you expose one publicly, put it behind an authenticated reverse proxy or keep it on a private network.
+
+[Privacy model →](docs/PRIVACY.md) · [Architecture →](docs/ARCHITECTURE.md) · [Security policy →](SECURITY.md)
 
 ## Documentation
 
-Start with the guide for the way you want to run it:
-
-- [Home Assistant app guide](energy_security/DOCS.md)
-- [Standalone Docker and Railway](docs/STANDALONE.md)
-
-Then, for the underlying model and technical detail:
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [Scoring model](docs/SCORING.md)
-- [Data sources](docs/DATA_SOURCES.md)
-- [Embedded electricity reference](docs/ELECTRICITY_REFERENCE.md)
-- [Support matrix](docs/SUPPORT_MATRIX.md)
-- [Provider health and fallbacks](docs/PROVIDER_HEALTH.md)
-- [Privacy](docs/PRIVACY.md)
-- [Memory budget](docs/MEMORY_BUDGET.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
-- [Security policy](SECURITY.md)
-- [Contributing](CONTRIBUTING.md)
+| Start here | Deeper reference |
+|---|---|
+| [Home Assistant app guide](energy_security/DOCS.md) | [Scoring model](docs/SCORING.md) |
+| [Docker & Railway guide](docs/STANDALONE.md) | [Provider health & fallbacks](docs/PROVIDER_HEALTH.md) |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | [Support matrix](docs/SUPPORT_MATRIX.md) |
+| [Data sources](docs/DATA_SOURCES.md) | [Memory budget](docs/MEMORY_BUDGET.md) |
+| [Privacy](docs/PRIVACY.md) | [Contributing](CONTRIBUTING.md) |
 
 ## Licence
 
 Copyright 2026 ArrowSK.
 
-The software is licensed under **PolyForm Noncommercial License 1.0.0**. This is a source-available noncommercial licence and is not an OSI-approved open-source licence. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Energy Security Monitor is licensed under the **PolyForm Noncommercial License 1.0.0**. It is source-available for noncommercial use and is not an OSI-approved open-source licence. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-Most runtime provider data remains subject to the respective provider's terms. The embedded electricity reference is derived from Ember yearly demand data under CC BY 4.0 and is attributed separately in [Third-party software and data](THIRD_PARTY_LICENSES.md).
+Runtime provider data remains subject to the respective provider terms. The embedded electricity reference is derived from Ember yearly demand data under CC BY 4.0 and is attributed separately in [Third-party software and data](THIRD_PARTY_LICENSES.md).
