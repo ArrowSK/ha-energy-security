@@ -12,29 +12,21 @@ import (
 var countryPattern = regexp.MustCompile(`^[A-Z]{2}$`)
 
 type Config struct {
-	Country               string   `json:"country"`
-	RefreshMinutes        int      `json:"refresh_minutes"`
-	EnableHAEntities      bool     `json:"enable_ha_entities"`
-	EnableWeather         bool     `json:"enable_weather"`
-	EnableTopologyLearner bool     `json:"enable_topology_learner"`
-	AGSIKey               string   `json:"agsi_key"`
-	ENTSOEToken           string   `json:"entsoe_token"`
-	RuntimeMode           string   `json:"-"`
-	Latitude              *float64 `json:"-"`
-	Longitude             *float64 `json:"-"`
-	TimeZone              string   `json:"-"`
-	LocationName          string   `json:"-"`
+	Country          string   `json:"country"`
+	RefreshMinutes   int      `json:"refresh_minutes"`
+	EnableHAEntities bool     `json:"enable_ha_entities"`
+	EnableWeather    bool     `json:"enable_weather"`
+	AGSIKey          string   `json:"agsi_key"`
+	ENTSOEToken      string   `json:"entsoe_token"`
+	RuntimeMode      string   `json:"-"`
+	Latitude         *float64 `json:"-"`
+	Longitude        *float64 `json:"-"`
+	TimeZone         string   `json:"-"`
+	LocationName     string   `json:"-"`
 }
 
 func Defaults() Config {
-	return Config{
-		Country:               "auto",
-		RefreshMinutes:        30,
-		EnableHAEntities:      true,
-		EnableWeather:         true,
-		EnableTopologyLearner: true,
-		RuntimeMode:           "home_assistant",
-	}
+	return Config{Country: "auto", RefreshMinutes: 30, EnableHAEntities: true, EnableWeather: true, RuntimeMode: "home_assistant"}
 }
 
 func normalize(cfg Config) (Config, error) {
@@ -80,7 +72,6 @@ func LoadEnvironment() (Config, error) {
 	cfg := Defaults()
 	cfg.RuntimeMode = "standalone"
 	cfg.EnableHAEntities = false
-	cfg.EnableTopologyLearner = false
 	cfg.Country = strings.TrimSpace(os.Getenv("ENERGY_SECURITY_COUNTRY"))
 	if cfg.Country == "" {
 		return cfg, fmt.Errorf("ENERGY_SECURITY_COUNTRY is required for standalone mode")

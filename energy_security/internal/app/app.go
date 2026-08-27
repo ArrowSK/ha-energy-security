@@ -19,20 +19,18 @@ import (
 	"github.com/ArrowSK/ha-energy-security/energy_security/internal/httpx"
 	"github.com/ArrowSK/ha-energy-security/energy_security/internal/model"
 	"github.com/ArrowSK/ha-energy-security/energy_security/internal/provider"
-	"github.com/ArrowSK/ha-energy-security/energy_security/internal/topology"
 )
 
 type App struct {
-	cfg             config.Config
-	cache           cache.Store
-	ha              *ha.Client
-	pm              *provider.Manager
-	topologyLearner *topology.Learner
-	mu              sync.RWMutex
-	refreshMu       sync.Mutex
-	snapshot        model.Snapshot
-	groups          []provider.Group
-	locationReady   bool
+	cfg           config.Config
+	cache         cache.Store
+	ha            *ha.Client
+	pm            *provider.Manager
+	mu            sync.RWMutex
+	refreshMu     sync.Mutex
+	snapshot      model.Snapshot
+	groups        []provider.Group
+	locationReady bool
 }
 
 func New(cfg config.Config, dataDir string) *App {
@@ -44,9 +42,6 @@ func New(cfg config.Config, dataDir string) *App {
 		{ID: "oil", TTL: 45 * 24 * time.Hour, Providers: []provider.Provider{provider.EurostatOil{C: hc}}},
 		{ID: "water", TTL: 36 * time.Hour, Providers: []provider.Provider{provider.HungaryHydroinfo{C: hc}}},
 		{ID: "weather", TTL: 6 * time.Hour, Providers: []provider.Provider{provider.OpenMeteo{C: hc}}},
-	}
-	if cfg.EnableTopologyLearner && !strings.EqualFold(cfg.RuntimeMode, "standalone") {
-		a.topologyLearner = topology.New(a.ha, dataDir+"/topology.json", cfg.EnableHAEntities)
 	}
 	if old, err := a.cache.Load(); err == nil {
 		a.snapshot = old
@@ -60,14 +55,6 @@ func (a *App) Snapshot() model.Snapshot {
 	defer a.mu.RUnlock()
 	return cloneSnapshot(a.snapshot)
 }
-
-func (a *App) TopologySnapshot() topology.Snapshot {
-	if a.topologyLearner == nil {
-		return topology.Snapshot{Enabled: false, Status: "disabled", RetentionDays: topology.RetentionDays}
-	}
-	return a.topologyLearner.Snapshot()
-}
-
 func cloneSnapshot(s model.Snapshot) model.Snapshot {
 	out := s
 	out.Domains = map[string]model.DomainScore{}
@@ -278,9 +265,6 @@ func merge(a, b map[string]any) map[string]any {
 }
 
 func (a *App) Run(ctx context.Context) {
-	if a.topologyLearner != nil {
-		go a.topologyLearner.Run(ctx)
-	}
 	if err := a.Refresh(ctx); err != nil {
 		log.Printf("initial refresh failed: %v", err)
 	}
