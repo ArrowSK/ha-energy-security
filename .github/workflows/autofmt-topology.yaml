@@ -1,0 +1,39 @@
+name: Canonicalize topology branch
+
+on:
+  push:
+    branches:
+      - feature/power-topology-learner
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: feature/power-topology-learner
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: energy_security/go.mod
+          cache-dependency-path: energy_security/go.sum
+      - name: Canonicalize Go module and source
+        run: |
+          cd energy_security
+          go mod tidy
+          gofmt -w internal/ha/websocket.go internal/topology/learner.go internal/topology/learner_test.go internal/config/config.go internal/app/app.go
+          cd ..
+          git rm .github/workflows/autofmt-topology.yaml
+      - name: Commit canonical output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git add -A
+            git commit -m "Format topology learner and tidy module"
+            git push origin HEAD:feature/power-topology-learner
+          fi
