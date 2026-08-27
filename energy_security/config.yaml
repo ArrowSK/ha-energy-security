@@ -25,6 +25,6 @@ schema:
   refresh_minutes: int(10,180)
   enable_ha_entities: bool
   enable_weather: bool
-  enable_topology_learner: bool
+  enable_topology_learner?: bool
   agsi_key: password
   entsoe_token: password
