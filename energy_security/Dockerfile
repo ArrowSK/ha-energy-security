@@ -2,6 +2,7 @@ FROM golang:1.23-alpine3.22 AS builder
 ARG BUILD_VERSION=dev
 WORKDIR /src
 COPY go.mod ./
+COPY go.sum ./
 COPY cmd ./cmd
 COPY internal ./internal
 RUN CGO_ENABLED=0 go test ./... \
@@ -9,7 +10,7 @@ RUN CGO_ENABLED=0 go test ./... \
  && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${BUILD_VERSION:-dev}" -o /out/energy-security ./cmd/energy-security
 
 FROM ghcr.io/home-assistant/base:3.24
-ARG BUILD_VERSION=0.2.0
+ARG BUILD_VERSION=0.3.0
 ARG BUILD_ARCH
 LABEL io.hass.version="${BUILD_VERSION}" \
       io.hass.type="app" \
