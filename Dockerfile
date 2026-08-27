@@ -1,6 +1,7 @@
 FROM golang:1.23-alpine3.22 AS builder
 WORKDIR /src
 COPY energy_security/go.mod ./
+COPY energy_security/go.sum ./
 COPY energy_security/cmd ./cmd
 COPY energy_security/internal ./internal
 COPY energy_security/config.yaml ./config.yaml
