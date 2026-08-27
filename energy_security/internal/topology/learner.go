@@ -47,25 +47,25 @@ type Snapshot struct {
 }
 
 type Relationship struct {
-	ParentDeviceID  string    `json:"parent_device_id"`
-	ParentEntityID  string    `json:"parent_entity_id"`
-	ParentName      string    `json:"parent_name"`
-	ChildDeviceID   string    `json:"child_device_id"`
-	ChildEntityID   string    `json:"child_entity_id"`
-	ChildSwitchID   string    `json:"child_switch_id"`
-	ChildName       string    `json:"child_name"`
-	Status          string    `json:"status"`
-	Confidence      float64   `json:"confidence"`
-	Matches         int       `json:"matches"`
-	Contradictions  int       `json:"contradictions"`
-	OnMatches       int       `json:"on_matches"`
-	OffMatches      int       `json:"off_matches"`
-	CurrentStreak   int       `json:"current_streak"`
-	BestStreak      int       `json:"best_streak"`
-	LearnedFactor   float64   `json:"learned_factor"`
-	Direct          bool      `json:"direct"`
-	FirstSeen       time.Time `json:"first_seen"`
-	LastSeen        time.Time `json:"last_seen"`
+	ParentDeviceID string    `json:"parent_device_id"`
+	ParentEntityID string    `json:"parent_entity_id"`
+	ParentName     string    `json:"parent_name"`
+	ChildDeviceID  string    `json:"child_device_id"`
+	ChildEntityID  string    `json:"child_entity_id"`
+	ChildSwitchID  string    `json:"child_switch_id"`
+	ChildName      string    `json:"child_name"`
+	Status         string    `json:"status"`
+	Confidence     float64   `json:"confidence"`
+	Matches        int       `json:"matches"`
+	Contradictions int       `json:"contradictions"`
+	OnMatches      int       `json:"on_matches"`
+	OffMatches     int       `json:"off_matches"`
+	CurrentStreak  int       `json:"current_streak"`
+	BestStreak     int       `json:"best_streak"`
+	LearnedFactor  float64   `json:"learned_factor"`
+	Direct         bool      `json:"direct"`
+	FirstSeen      time.Time `json:"first_seen"`
+	LastSeen       time.Time `json:"last_seen"`
 }
 
 type persistedStore struct {
@@ -76,18 +76,18 @@ type persistedStore struct {
 }
 
 type relationData struct {
-	ParentDeviceID string                   `json:"parent_device_id"`
-	ParentEntityID string                   `json:"parent_entity_id"`
-	ParentName     string                   `json:"parent_name"`
-	ChildDeviceID  string                   `json:"child_device_id"`
-	ChildEntityID  string                   `json:"child_entity_id"`
-	ChildSwitchID  string                   `json:"child_switch_id"`
-	ChildName      string                   `json:"child_name"`
-	CurrentStreak  int                      `json:"current_streak"`
-	BestStreak     int                      `json:"best_streak"`
-	LastResult     string                   `json:"last_result"`
-	FirstSeen      time.Time                `json:"first_seen"`
-	LastSeen       time.Time                `json:"last_seen"`
+	ParentDeviceID string                    `json:"parent_device_id"`
+	ParentEntityID string                    `json:"parent_entity_id"`
+	ParentName     string                    `json:"parent_name"`
+	ChildDeviceID  string                    `json:"child_device_id"`
+	ChildEntityID  string                    `json:"child_entity_id"`
+	ChildSwitchID  string                    `json:"child_switch_id"`
+	ChildName      string                    `json:"child_name"`
+	CurrentStreak  int                       `json:"current_streak"`
+	BestStreak     int                       `json:"best_streak"`
+	LastResult     string                    `json:"last_result"`
+	FirstSeen      time.Time                 `json:"first_seen"`
+	LastSeen       time.Time                 `json:"last_seen"`
 	Days           map[string]*dailyEvidence `json:"days"`
 }
 
@@ -119,19 +119,19 @@ type pendingTransition struct {
 }
 
 type runtimeState struct {
-	entityMeta       map[string]ha.EntityRegistryEntry
-	deviceNames      map[string]string
-	entityNames      map[string]string
-	powerByDevice    map[string][]string
-	powerDevice      map[string]string
-	switchDevice     map[string]string
-	currentPower     map[string]float64
-	currentPowerAt   map[string]time.Time
-	samples          map[string][]sample
-	transitions      []switchTransition
-	observed         int64
-	ignored          int64
-	lastError        string
+	entityMeta     map[string]ha.EntityRegistryEntry
+	deviceNames    map[string]string
+	entityNames    map[string]string
+	powerByDevice  map[string][]string
+	powerDevice    map[string]string
+	switchDevice   map[string]string
+	currentPower   map[string]float64
+	currentPowerAt map[string]time.Time
+	samples        map[string][]sample
+	transitions    []switchTransition
+	observed       int64
+	ignored        int64
+	lastError      string
 }
 
 type Learner struct {

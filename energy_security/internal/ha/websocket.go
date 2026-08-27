@@ -189,7 +189,7 @@ func (c *Client) WatchStates(ctx context.Context, ready func(RegistrySnapshot), 
 			ID    int    `json:"id"`
 			Type  string `json:"type"`
 			Event struct {
-				EventType string `json:"event_type"`
+				EventType string    `json:"event_type"`
 				TimeFired time.Time `json:"time_fired"`
 				Data      struct {
 					EntityID string `json:"entity_id"`
